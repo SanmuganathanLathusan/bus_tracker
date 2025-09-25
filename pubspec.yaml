@@ -30,12 +30,14 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-    cupertino_icons: ^1.0.2 # Example, keep your existing dependencies
-      intl: ^0.18.0 # Add this line with the desired version
+
+  cupertino_icons: ^1.0.8
+  intl: ^0.18.0
+
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
-  cupertino_icons: ^1.0.8
+
 
 dev_dependencies:
   flutter_test:
