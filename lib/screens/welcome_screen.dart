@@ -139,7 +139,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                           // TODO: Add forgot password
                         },
                         child: const Text(
-                          "Password",
+                          " Forgot Password",
                           style: TextStyle(color: Colors.white70),
                         ),
                       ),
