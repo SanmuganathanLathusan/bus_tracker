@@ -4,6 +4,7 @@ import 'package:waygo/screens/signup.dart';
 import 'package:waygo/screens/splash.dart';
 import 'screens/welcome_screen.dart';
 
+
 void main() {
   runApp(const MyApp());
 }
@@ -22,7 +23,7 @@ class MyApp extends StatelessWidget {
         '/': (context) => const SplashScreen(),
         '/welcome': (context) => const WelcomeScreen(),
         '/signup': (context) => const SignUpScreen(),
-         '/home': (context) => const HomePage(),
+        '/home': (context) => const HomePage(),
       },
     );
   }
