@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:waygo/screens/Forgot_password.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -136,6 +137,14 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                     children: [
                       TextButton(
                         onPressed: () {
+                          Navigator.push(context,
+MaterialPageRoute(
+builder: (context){
+return ForgotPassword();
+}
+),
+);
+                                     
                           // TODO: Add forgot password
                         },
                         child: const Text(
