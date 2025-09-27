@@ -1,3 +1,16 @@
+build scipt{
+    repositories{
+        google()
+        jcenter()
+    }
+    dependencies{
+        class path  'com.google.gms.google-services: 4.4.3'   } 
+}
+
+
+
+
+
 allprojects {
     repositories {
         google()
