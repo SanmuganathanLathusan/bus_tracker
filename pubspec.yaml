@@ -30,10 +30,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-    
-    
-  
 
+  firebase_core: ^4.1.1   # latest version at the time
+  firebase_auth: 6.1.0
   cupertino_icons: ^1.0.8
   intl: ^0.18.0
 
