@@ -1,5 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:waygo/utils/app_colors.dart';
+import 'package:waygo/utils/app_text_styles.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -16,14 +18,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     String email = _emailController.text.trim();
     String password = _passwordController.text.trim();
 
-    // Simple check (replace with Firebase / API later)
     if (email == "test@example.com" && password == "123456") {
       Navigator.pushReplacementNamed(context, '/home');
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("Invalid email or password"),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.accentDark,
         ),
       );
     }
@@ -38,11 +39,11 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
           // Background Image
           Image.asset("assest/images1.jpg", fit: BoxFit.cover),
 
-          // Blur Effect
+          // Dark Blur Overlay
           BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
             child: Container(
-              color: Colors.black.withOpacity(0.2),
+              color: Colors.black.withOpacity(0.5),
             ),
           ),
 
@@ -53,29 +54,34 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // Heading
                   const Text(
                     "Welcome",
                     style: TextStyle(
-                      color: Colors.white,
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
+                      color: AppColors.textLight,
                     ),
                   ),
                   const SizedBox(height: 8),
+
+                  // Subtext
                   const Text(
-                    "Lorem ipsum dolor sit amet, consectetur adipiscing elit.\n"
-                    "Donec auctor neque sed pretium luctus.",
+                    "Your smart way to travel.\nPlan, track, and enjoy your journey with ease.",
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white70, fontSize: 14),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.white70,
+                    ),
                   ),
                   const SizedBox(height: 32),
 
-                  // Email TextField
+                  // Email Field
                   TextField(
                     controller: _emailController,
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: Colors.white.withOpacity(0.2),
+                      fillColor: Colors.white.withOpacity(0.15),
                       hintText: "Email Address",
                       hintStyle: const TextStyle(color: Colors.white70),
                       border: OutlineInputBorder(
@@ -87,17 +93,17 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         vertical: 16,
                       ),
                     ),
-                    style: const TextStyle(color: Colors.white),
+                    style: const TextStyle(color: AppColors.textLight),
                   ),
                   const SizedBox(height: 16),
 
-                  // Password TextField
+                  // Password Field
                   TextField(
                     controller: _passwordController,
                     obscureText: true,
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: Colors.white.withOpacity(0.2),
+                      fillColor: Colors.white.withOpacity(0.15),
                       hintText: "Password",
                       hintStyle: const TextStyle(color: Colors.white70),
                       border: OutlineInputBorder(
@@ -109,7 +115,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         vertical: 16,
                       ),
                     ),
-                    style: const TextStyle(color: Colors.white),
+                    style: const TextStyle(color: AppColors.textLight),
                   ),
                   const SizedBox(height: 24),
 
@@ -117,16 +123,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   ElevatedButton(
                     onPressed: _login,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
+                      backgroundColor: AppColors.accentPrimary,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(30),
                       ),
                       minimumSize: const Size(double.infinity, 50),
                     ),
-                    child: const Text(
-                      "Login",
-                      style: TextStyle(fontSize: 18),
-                    ),
+                    child: const Text("Login", style: AppTextStyles.button),
                   ),
                   const SizedBox(height: 16),
 
@@ -136,17 +139,16 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                     children: [
                       TextButton(
                         onPressed: () {
-                          // TODO: Add forgot password
+                          // TODO: Forgot password
                         },
                         child: const Text(
-                          "Password",
+                          "Forgot Password?",
                           style: TextStyle(color: Colors.white70),
                         ),
                       ),
-                      const Text(
-                        "|",
-                        style: TextStyle(color: Colors.white70),
-                      ),
+                      const SizedBox(width: 8),
+                      const Text("|", style: TextStyle(color: Colors.white70)),
+                      const SizedBox(width: 8),
                       TextButton(
                         onPressed: () {
                           Navigator.pushNamed(context, '/signup');
