@@ -1,7 +1,5 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:waygo/screens/Forgot_password.dart';
- import 'package:firebase_auth/firebase_auth.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -21,35 +19,18 @@ void _login() async {
   String email = _emailController.text.trim();
   String password = _passwordController.text.trim();
 
-  if (email.isEmpty || password.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Please enter email and password")),
-    );
-    return;
-  }
-
-  try {
-    // Firebase Authentication
-    UserCredential userCredential = await FirebaseAuth.instance
-        .signInWithEmailAndPassword(email: email, password: password);
-
-    // If successful
-    Navigator.pushReplacementNamed(context, '/home');
-  } on FirebaseAuthException catch (e) {
-    String message = "Login failed";
-
-    if (e.code == 'user-not-found') {
-      message = "No user found for that email.";
-    } else if (e.code == 'wrong-password') {
-      message = "Wrong password provided.";
+    // Simple check (replace with Firebase / API later)
+    if (email == "test@example.com" && password == "123456") {
+      Navigator.pushReplacementNamed(context, '/home');
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Invalid email or password"),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red),
-    );
   }
-}
-
 
   @override
   Widget build(BuildContext context) {
@@ -60,11 +41,11 @@ void _login() async {
           // Background Image
           Image.asset("assest/images1.jpg", fit: BoxFit.cover),
 
-          // Blur Effect
+          // Dark Blur Overlay
           BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
             child: Container(
-              color: Colors.black.withOpacity(0.2),
+              color: Colors.black.withOpacity(0.5),
             ),
           ),
 
@@ -75,29 +56,34 @@ void _login() async {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // Heading
                   const Text(
                     "Welcome",
                     style: TextStyle(
-                      color: Colors.white,
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
+                      color: AppColors.textLight,
                     ),
                   ),
                   const SizedBox(height: 8),
+
+                  // Subtext
                   const Text(
-                    "Lorem ipsum dolor sit amet, consectetur adipiscing elit.\n"
-                    "Donec auctor neque sed pretium luctus.",
+                    "Your smart way to travel.\nPlan, track, and enjoy your journey with ease.",
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white70, fontSize: 14),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.white70,
+                    ),
                   ),
                   const SizedBox(height: 32),
 
-                  // Email TextField
+                  // Email Field
                   TextField(
                     controller: _emailController,
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: Colors.white.withOpacity(0.2),
+                      fillColor: Colors.white.withOpacity(0.15),
                       hintText: "Email Address",
                       hintStyle: const TextStyle(color: Colors.white70),
                       border: OutlineInputBorder(
@@ -109,17 +95,17 @@ void _login() async {
                         vertical: 16,
                       ),
                     ),
-                    style: const TextStyle(color: Colors.white),
+                    style: const TextStyle(color: AppColors.textLight),
                   ),
                   const SizedBox(height: 16),
 
-                  // Password TextField
+                  // Password Field
                   TextField(
                     controller: _passwordController,
                     obscureText: true,
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: Colors.white.withOpacity(0.2),
+                      fillColor: Colors.white.withOpacity(0.15),
                       hintText: "Password",
                       hintStyle: const TextStyle(color: Colors.white70),
                       border: OutlineInputBorder(
@@ -131,7 +117,7 @@ void _login() async {
                         vertical: 16,
                       ),
                     ),
-                    style: const TextStyle(color: Colors.white),
+                    style: const TextStyle(color: AppColors.textLight),
                   ),
                   const SizedBox(height: 24),
 
@@ -139,16 +125,13 @@ void _login() async {
                   ElevatedButton(
                     onPressed: _login,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
+                      backgroundColor: AppColors.accentPrimary,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(30),
                       ),
                       minimumSize: const Size(double.infinity, 50),
                     ),
-                    child: const Text(
-                      "Login",
-                      style: TextStyle(fontSize: 18),
-                    ),
+                    child: const Text("Login", style: AppTextStyles.button),
                   ),
                   const SizedBox(height: 16),
 
@@ -158,25 +141,16 @@ void _login() async {
                     children: [
                       TextButton(
                         onPressed: () {
-                          Navigator.push(context,
-MaterialPageRoute(
-builder: (context){
-return ForgotPassword();
-}
-),
-);
-                                     
                           // TODO: Add forgot password
                         },
                         child: const Text(
-                          " Forgot Password",
+                          "Password",
                           style: TextStyle(color: Colors.white70),
                         ),
                       ),
-                      const Text(
-                        "|",
-                        style: TextStyle(color: Colors.white70),
-                      ),
+                      const SizedBox(width: 8),
+                      const Text("|", style: TextStyle(color: Colors.white70)),
+                      const SizedBox(width: 8),
                       TextButton(
                         onPressed: () {
                           Navigator.pushNamed(context, '/signup');

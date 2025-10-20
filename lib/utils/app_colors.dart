@@ -20,4 +20,3 @@ class AppColors {
   static const Color accentPrimary = waygoLightBlue;
   static const Color accentDark = waygoDarkBlue;
 }
-
