@@ -15,25 +15,21 @@ import 'package:waygo/screens/welcome_screen.dart';
 
 // import your new dashboard pages
 
-
-
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  if(kIsWeb){
-  
-  await Firebase.initializeApp(
-    options: FirebaseOptions(
-      apiKey: "AIzaSyAmmTkW8JIGc5b6NKBfJ5AQwyYlQtTs8nQ",
-  authDomain: "waygo-cb228.firebaseapp.com",
-  projectId: "waygo-cb228",
-  storageBucket: "waygo-cb228.firebasestorage.app",
-  messagingSenderId: "630363687413",
-  appId: "1:630363687413:web:88dff654d695ef877ab8bc",
-  measurementId: "G-DCGH3B8EJ1" 
-    ), );
-  }
-  else{
+  if (kIsWeb) {
+    await Firebase.initializeApp(
+      options: FirebaseOptions(
+        apiKey: "AIzaSyAmmTkW8JIGc5b6NKBfJ5AQwyYlQtTs8nQ",
+        authDomain: "waygo-cb228.firebaseapp.com",
+        projectId: "waygo-cb228",
+        storageBucket: "waygo-cb228.firebasestorage.app",
+        messagingSenderId: "630363687413",
+        appId: "1:630363687413:web:88dff654d695ef877ab8bc",
+        measurementId: "G-DCGH3B8EJ1",
+      ),
+    );
+  } else {
     await Firebase.initializeApp();
   }
   runApp(const MyApp());
@@ -56,17 +52,12 @@ class MyApp extends StatelessWidget {
         '/welcome': (context) => const WelcomeScreen(),
         '/signup': (context) => const SignUpScreen(),
         '/home': (context) => const HomePage(),
-<<<<<<< HEAD
-
-        // dashboard routes
         '/news': (context) => const MainNews(),
         '/live_location': (context) => const LiveLocation(),
         '/schedule': (context) => const Schedule(),
         '/seats': (context) => const SeatReservation(),
         '/prices': (context) => const TicketPrices(),
         '/eticket': (context) => const Etickets(),
-=======
->>>>>>> main
       },
     );
   }
