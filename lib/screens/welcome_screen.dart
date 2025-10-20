@@ -1,5 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:waygo/constants/app_colors.dart';
+import 'package:waygo/constants/app_text_styles.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -59,7 +61,7 @@ void _login() async {
                   // Heading
                   const Text(
                     "Welcome",
-                    style: TextStyle(
+                    style:  TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
                       color: AppColors.textLight,
@@ -95,7 +97,7 @@ void _login() async {
                         vertical: 16,
                       ),
                     ),
-                    style: const TextStyle(color: AppColors.textLight),
+                    style: TextStyle(color: AppColors.textLight),
                   ),
                   const SizedBox(height: 16),
 
@@ -117,7 +119,7 @@ void _login() async {
                         vertical: 16,
                       ),
                     ),
-                    style: const TextStyle(color: AppColors.textLight),
+                    style: TextStyle(color: AppColors.textLight),
                   ),
                   const SizedBox(height: 24),
 
@@ -131,7 +133,7 @@ void _login() async {
                       ),
                       minimumSize: const Size(double.infinity, 50),
                     ),
-                    child: const Text("Login", style: AppTextStyles.button),
+                    child: Text("Login", style: AppTextStyles.button),
                   ),
                   const SizedBox(height: 16),
 
