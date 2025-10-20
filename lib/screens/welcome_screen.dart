@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:waygo/screens/Forgot_password.dart';
+ import 'package:firebase_auth/firebase_auth.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -13,22 +14,42 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  void _login() {
-    String email = _emailController.text.trim();
-    String password = _passwordController.text.trim();
 
-    // Simple check (replace with Firebase / API later)
-    if (email == "test@example.com" && password == "123456") {
-      Navigator.pushReplacementNamed(context, '/home');
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Invalid email or password"),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
+
+// inside _WelcomeScreenState
+void _login() async {
+  String email = _emailController.text.trim();
+  String password = _passwordController.text.trim();
+
+  if (email.isEmpty || password.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Please enter email and password")),
+    );
+    return;
   }
+
+  try {
+    // Firebase Authentication
+    UserCredential userCredential = await FirebaseAuth.instance
+        .signInWithEmailAndPassword(email: email, password: password);
+
+    // If successful
+    Navigator.pushReplacementNamed(context, '/home');
+  } on FirebaseAuthException catch (e) {
+    String message = "Login failed";
+
+    if (e.code == 'user-not-found') {
+      message = "No user found for that email.";
+    } else if (e.code == 'wrong-password') {
+      message = "Wrong password provided.";
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
+  }
+}
+
 
   @override
   Widget build(BuildContext context) {
