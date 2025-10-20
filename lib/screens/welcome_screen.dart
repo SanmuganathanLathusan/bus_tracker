@@ -1,7 +1,5 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:waygo/utils/app_colors.dart';
-import 'package:waygo/utils/app_text_styles.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -14,17 +12,21 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  void _login() {
-    String email = _emailController.text.trim();
-    String password = _passwordController.text.trim();
 
+
+// inside _WelcomeScreenState
+void _login() async {
+  String email = _emailController.text.trim();
+  String password = _passwordController.text.trim();
+
+    // Simple check (replace with Firebase / API later)
     if (email == "test@example.com" && password == "123456") {
       Navigator.pushReplacementNamed(context, '/home');
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("Invalid email or password"),
-          backgroundColor: AppColors.accentDark,
+          backgroundColor: Colors.red,
         ),
       );
     }
@@ -139,10 +141,10 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                     children: [
                       TextButton(
                         onPressed: () {
-                          // TODO: Forgot password
+                          // TODO: Add forgot password
                         },
                         child: const Text(
-                          "Forgot Password?",
+                          "Password",
                           style: TextStyle(color: Colors.white70),
                         ),
                       ),
