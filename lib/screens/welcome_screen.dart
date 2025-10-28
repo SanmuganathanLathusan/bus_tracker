@@ -1,174 +1,110 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:waygo/constants/app_colors.dart';
-import 'package:waygo/constants/app_text_styles.dart';
 
-class WelcomeScreen extends StatefulWidget {
+class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
-
-  @override
-  State<WelcomeScreen> createState() => _WelcomeScreenState();
-}
-
-class _WelcomeScreenState extends State<WelcomeScreen> {
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-
-
-
-// inside _WelcomeScreenState
-void _login() async {
-  String email = _emailController.text.trim();
-  String password = _passwordController.text.trim();
-
-    // Simple check (replace with Firebase / API later)
-    if (email == "test@example.com" && password == "123456") {
-      Navigator.pushReplacementNamed(context, '/home');
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Invalid email or password"),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Background Image
-          Image.asset("assest/images1.jpg", fit: BoxFit.cover),
-
-          // Dark Blur Overlay
-          BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-            child: Container(
-              color: Colors.black.withOpacity(0.5),
-            ),
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF00B4D8), Color(0xFF0077B6)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-
-          // Content
-          Center(
+        ),
+        child: SafeArea(
+          child: Center(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+              padding: const EdgeInsets.symmetric(horizontal: 30),
               child: Column(
-                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Heading
-                  const Text(
-                    "Welcome",
-                    style:  TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textLight,
-                    ),
+                  // Bus icon illustration
+                  const Icon(
+                    Icons.directions_bus_rounded,
+                    size: 100,
+                    color: Colors.white,
                   ),
-                  const SizedBox(height: 8),
-
-                  // Subtext
+                  const SizedBox(height: 20),
                   const Text(
-                    "Your smart way to travel.\nPlan, track, and enjoy your journey with ease.",
+                    'Welcome to WayGo!',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.white70,
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      letterSpacing: 1.2,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black26,
+                          offset: Offset(2, 2),
+                          blurRadius: 4,
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 32),
-
-                  // Email Field
-                  TextField(
-                    controller: _emailController,
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: Colors.white.withOpacity(0.15),
-                      hintText: "Email Address",
-                      hintStyle: const TextStyle(color: Colors.white70),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(30),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 16,
-                      ),
-                    ),
-                    style: TextStyle(color: AppColors.textLight),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Password Field
-                  TextField(
-                    controller: _passwordController,
-                    obscureText: true,
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: Colors.white.withOpacity(0.15),
-                      hintText: "Password",
-                      hintStyle: const TextStyle(color: Colors.white70),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(30),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 16,
-                      ),
-                    ),
-                    style: TextStyle(color: AppColors.textLight),
-                  ),
-                  const SizedBox(height: 24),
-
+                  const SizedBox(height: 60),
                   // Login Button
-                  ElevatedButton(
-                    onPressed: _login,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.accentPrimary,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pushNamed(context, '/login');
+                      },
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(25),
+                        ),
+                        backgroundColor: Colors.orangeAccent,
+                        elevation: 5,
+                        shadowColor: Colors.black38,
                       ),
-                      minimumSize: const Size(double.infinity, 50),
+                      child: const Text(
+                        'Login',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
-                    child: Text("Login", style: AppTextStyles.button),
                   ),
-                  const SizedBox(height: 16),
-
-                  // Bottom Links
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      TextButton(
-                        onPressed: () {
-                          // TODO: Add forgot password
-                        },
-                        child: const Text(
-                          "Password",
-                          style: TextStyle(color: Colors.white70),
+                  const SizedBox(height: 20),
+                  // Sign Up Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () {
+                        Navigator.pushNamed(context, '/signup');
+                      },
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        side: const BorderSide(color: Colors.white, width: 2),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(25),
+                        ),
+                        backgroundColor: Colors.white.withOpacity(0.1),
+                      ),
+                      child: const Text(
+                        'Sign Up',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      const Text("|", style: TextStyle(color: Colors.white70)),
-                      const SizedBox(width: 8),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.pushNamed(context, '/signup');
-                        },
-                        child: const Text(
-                          "Register",
-                          style: TextStyle(color: Colors.white70),
-                        ),
-                      ),
-                    ],
-                  )
+                    ),
+                  ),
                 ],
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
