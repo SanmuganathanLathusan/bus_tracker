@@ -1,7 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:waygo/utils/app_colors.dart';
-import 'package:waygo/utils/app_text_styles.dart';
+import 'package:waygo/constants/app_colors.dart';
+import 'package:waygo/constants/app_text_styles.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -14,17 +14,21 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  void _login() {
-    String email = _emailController.text.trim();
-    String password = _passwordController.text.trim();
 
+
+// inside _WelcomeScreenState
+void _login() async {
+  String email = _emailController.text.trim();
+  String password = _passwordController.text.trim();
+
+    // Simple check (replace with Firebase / API later)
     if (email == "test@example.com" && password == "123456") {
       Navigator.pushReplacementNamed(context, '/home');
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("Invalid email or password"),
-          backgroundColor: AppColors.accentDark,
+          backgroundColor: Colors.red,
         ),
       );
     }
@@ -57,7 +61,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   // Heading
                   const Text(
                     "Welcome",
-                    style: TextStyle(
+                    style:  TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
                       color: AppColors.textLight,
@@ -93,7 +97,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         vertical: 16,
                       ),
                     ),
-                    style: const TextStyle(color: AppColors.textLight),
+                    style: TextStyle(color: AppColors.textLight),
                   ),
                   const SizedBox(height: 16),
 
@@ -115,7 +119,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         vertical: 16,
                       ),
                     ),
-                    style: const TextStyle(color: AppColors.textLight),
+                    style: TextStyle(color: AppColors.textLight),
                   ),
                   const SizedBox(height: 24),
 
@@ -129,7 +133,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                       ),
                       minimumSize: const Size(double.infinity, 50),
                     ),
-                    child: const Text("Login", style: AppTextStyles.button),
+                    child: Text("Login", style: AppTextStyles.button),
                   ),
                   const SizedBox(height: 16),
 
@@ -139,10 +143,10 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                     children: [
                       TextButton(
                         onPressed: () {
-                          // TODO: Forgot password
+                          // TODO: Add forgot password
                         },
                         child: const Text(
-                          "Forgot Password?",
+                          "Password",
                           style: TextStyle(color: Colors.white70),
                         ),
                       ),
