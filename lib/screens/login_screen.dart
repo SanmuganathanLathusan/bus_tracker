@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:waygo/screens/HomePage.dart'; // Make sure this path is correct
+import 'package:waygo/screens/HomePage.dart';
+import 'package:waygo/screens/forgotpassword.dart'; // ✅ Import added
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -35,7 +36,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(data['message'] ?? 'Login successful!')),
         );
-        // Navigate to HomePage after successful login
+
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const HomePage()),
@@ -90,6 +91,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 50),
+
                   // Email field
                   TextField(
                     controller: emailController,
@@ -105,6 +107,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 15),
+
                   // Password field
                   TextField(
                     controller: passwordController,
@@ -120,23 +123,28 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  // Forgot Password
+                  const SizedBox(height: 10),
+
+                  // Forgot Password button
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
                       onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Forgot Password clicked')),
-                        );
+                        // ✅ Navigate to Forgot Password page
+                        Navigator.pushNamed(context, '/forgot_password');
                       },
                       child: const Text(
                         'Forgot Password?',
-                        style: TextStyle(color: Colors.white),
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w500,
+                          decoration: TextDecoration.underline,
+                        ),
                       ),
                     ),
                   ),
                   const SizedBox(height: 20),
+
                   // Login Button
                   SizedBox(
                     width: double.infinity,
@@ -162,7 +170,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  // Navigate to Signup
+
+                  // Signup Navigation
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
