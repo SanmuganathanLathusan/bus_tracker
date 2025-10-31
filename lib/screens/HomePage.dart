@@ -48,6 +48,20 @@ class HomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0C2442),
+      appBar: AppBar(
+        backgroundColor: AppColors.waygoDarkBlue,
+        title: const Text("WayGo"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Sign Out',
+            onPressed: () {
+              // Navigate back to login page
+              Navigator.pushReplacementNamed(context, '/login');
+            },
+          ),
+        ],
+      ),
       body: Column(
         children: [
           // Top banner with background image and overlay text
@@ -62,9 +76,7 @@ class HomePage extends StatelessWidget {
               Container(
                 width: double.infinity,
                 height: 200,
-                color: AppColors.waygoDarkBlue.withOpacity(
-                  0.5,
-                ), // dark overlay with brand color
+                color: AppColors.waygoDarkBlue.withOpacity(0.5),
               ),
               Positioned(
                 left: 20,
@@ -153,7 +165,6 @@ class _DashboardCard extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // transparent background image
             ClipRRect(
               borderRadius: BorderRadius.circular(16),
               child: Image.asset(item.imagePath, fit: BoxFit.cover),
@@ -164,7 +175,6 @@ class _DashboardCard extends StatelessWidget {
                 color: AppColors.waygoDarkBlue.withOpacity(0.5),
               ),
             ),
-            // icon + text
             Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,

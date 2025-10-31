@@ -38,7 +38,7 @@ class MyApp extends StatelessWidget {
 
         '/home': (context) => const HomePage(),
         '/news': (context) => const MainNews(),
-        '/live_location': (context) => const LiveLocation(),
+        '/live_location': (context) => const LiveLocationPage(),
         '/schedule': (context) => const Schedule(),
         '/seats': (context) => const SeatReservation(),
         '/prices': (context) => const TicketPrices(),
