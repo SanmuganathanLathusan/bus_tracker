@@ -12,7 +12,7 @@ import 'screens/signup.dart';
 import 'screens/splash.dart';
 import 'screens/login_screen.dart';
 import 'screens/welcome_screen.dart';
-
+import 'screens/forgotpassword.dart';
 void main() {
   runApp(const MyApp());
 }
@@ -43,6 +43,8 @@ class MyApp extends StatelessWidget {
         '/seats': (context) => const SeatReservation(),
         '/prices': (context) => const TicketPrices(),
         '/eticket': (context) => const Etickets(),
+        
+        '/forgot_password': (context) => const ForgotPasswordPage(),
       },
     );
   }
