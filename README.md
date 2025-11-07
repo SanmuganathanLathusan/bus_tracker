@@ -33,7 +33,8 @@ This system uses:
 ---
 
 ## <span style="color:#9333EA;">📂 Project Structure</span>
-
+-------
+------
 WayGo
 │
 ├── mobile-app (Flutter)
@@ -48,8 +49,8 @@ WayGo
 │ └── .env
 │
 └── database (MongoDB Collections)
-
----
+-------
+-------
 
 ## <span style="color:#F97316;">▶️ How It Works</span>
 
