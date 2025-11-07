@@ -13,6 +13,7 @@ import 'screens/splash.dart';
 import 'screens/login_screen.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/forgotpassword.dart';
+
 void main() {
   runApp(const MyApp());
 }
@@ -35,7 +36,6 @@ class MyApp extends StatelessWidget {
         '/login': (context) => const LoginScreen(),
         '/signup': (context) => const SignUpScreen(),
         '/welcome': (context) => const WelcomeScreen(),
-
         '/home': (context) => const HomePage(),
         '/news': (context) => const MainNews(),
         '/live_location': (context) => const LiveLocationPage(),
@@ -43,7 +43,6 @@ class MyApp extends StatelessWidget {
         '/seats': (context) => const SeatReservation(),
         '/prices': (context) => const TicketPrices(),
         '/eticket': (context) => const Etickets(),
-        
         '/forgot_password': (context) => const ForgotPasswordPage(),
       },
     );
