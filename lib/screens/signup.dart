@@ -1,7 +1,6 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:waygo/screens/HomePage.dart'; // Import your HomePage
+import '../services/api_service.dart';
+import 'HomePage.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -11,47 +10,33 @@ class SignUpScreen extends StatefulWidget {
 }
 
 class _SignUpScreenState extends State<SignUpScreen> {
-  final TextEditingController nameController = TextEditingController();
-  final TextEditingController emailController = TextEditingController();
-  final TextEditingController passwordController = TextEditingController();
+  final nameController = TextEditingController();
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
   bool isLoading = false;
 
   Future<void> registerUser() async {
     setState(() => isLoading = true);
 
-    try {
-      final response = await http.post(
-        Uri.parse('http://localhost:5000/api/auth/register'),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "name": nameController.text.trim(),
-          "email": emailController.text.trim(),
-          "password": passwordController.text.trim(),
-        }),
-      );
+    final result = await ApiService.registerUser(
+      name: nameController.text.trim(),
+      email: emailController.text.trim(),
+      password: passwordController.text.trim(),
+    );
 
-      setState(() => isLoading = false);
+    setState(() => isLoading = false);
 
-      if (response.statusCode == 201 || response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(data['message'] ?? 'Registration successful!')),
-        );
-        // Navigate to HomePage after successful signup
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const HomePage()),
-        );
-      } else {
-        final data = jsonDecode(response.body);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(data['message'] ?? 'Registration failed')),
-        );
-      }
-    } catch (e) {
-      setState(() => isLoading = false);
+    if (result['statusCode'] == 200 || result['statusCode'] == 201) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        SnackBar(content: Text(result['data']['message'] ?? 'Registration successful!')),
+      );
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const HomePage()),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result['data']['message'] ?? 'Registration failed')),
       );
     }
   }
@@ -64,7 +49,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         height: double.infinity,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Colors.blue, Colors.lightBlueAccent],
+            colors: [Color(0xFF0D47A1), Color(0xFF1976D2)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -72,115 +57,111 @@ class _SignUpScreenState extends State<SignUpScreen> {
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 30),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
+                  // App Logo or Bus Icon
+                  const Icon(
+                    Icons.directions_bus_filled,
+                    size: 100,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(height: 16),
                   const Text(
-                    'Create Your Account',
+                    "WayGo Bus Tracker",
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black26,
-                          offset: Offset(2, 2),
-                          blurRadius: 4,
-                        ),
-                      ],
+                      letterSpacing: 1.2,
                     ),
                   ),
-                  const SizedBox(height: 50),
+                  const SizedBox(height: 40),
+
                   // Name Field
-                  TextField(
-                    controller: nameController,
-                    decoration: InputDecoration(
-                      labelText: 'Full Name',
-                      filled: true,
-                      fillColor: Colors.white,
-                      prefixIcon: const Icon(Icons.person),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
+                  Card(
+                    elevation: 5,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    child: TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(
+                        prefixIcon: Icon(Icons.person),
+                        labelText: 'Full Name',
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 15),
+                  const SizedBox(height: 16),
+
                   // Email Field
-                  TextField(
-                    controller: emailController,
-                    decoration: InputDecoration(
-                      labelText: 'Email',
-                      filled: true,
-                      fillColor: Colors.white,
-                      prefixIcon: const Icon(Icons.email),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
+                  Card(
+                    elevation: 5,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    child: TextField(
+                      controller: emailController,
+                      decoration: const InputDecoration(
+                        prefixIcon: Icon(Icons.email),
+                        labelText: 'Email',
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 15),
+                  const SizedBox(height: 16),
+
                   // Password Field
-                  TextField(
-                    controller: passwordController,
-                    obscureText: true,
-                    decoration: InputDecoration(
-                      labelText: 'Password',
-                      filled: true,
-                      fillColor: Colors.white,
-                      prefixIcon: const Icon(Icons.lock),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
+                  Card(
+                    elevation: 5,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    child: TextField(
+                      controller: passwordController,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        prefixIcon: Icon(Icons.lock),
+                        labelText: 'Password',
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 24),
+
                   // Register Button
                   SizedBox(
                     width: double.infinity,
+                    height: 50,
                     child: ElevatedButton(
                       onPressed: isLoading ? null : registerUser,
                       style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                        backgroundColor: Colors.orangeAccent,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 5,
                       ),
                       child: isLoading
-                          ? const CircularProgressIndicator(color: Colors.blue)
+                          ? const CircularProgressIndicator(color: Colors.white)
                           : const Text(
                               'Register',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.blue,
-                              ),
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                             ),
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  // Already have account
+
+                  const SizedBox(height: 16),
+                  // Login Redirect
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Text(
                         "Already have an account?",
-                        style: TextStyle(color: Colors.white),
+                        style: TextStyle(color: Colors.white70),
                       ),
                       TextButton(
-                        onPressed: () {
-                          Navigator.pushNamed(context, '/login');
-                        },
+                        onPressed: () => Navigator.pushNamed(context, '/login'),
                         child: const Text(
                           "Login",
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
+                          style: TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold),
                         ),
                       ),
                     ],
