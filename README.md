@@ -1,4 +1,4 @@
-change text color more visual # **WayGo** — Real‑Time Bus Tracking App
+# **WayGo** — Real‑Time Bus Tracking App
 
 WayGo is a smart real-time bus tracking application designed to help passengers and transport operators monitor buses live, plan trips efficiently, and ensure timely transportation. The system uses **Flutter** for the mobile app and **Node.js + MongoDB** for backend services.
 
