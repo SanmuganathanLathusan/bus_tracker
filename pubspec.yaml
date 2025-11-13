@@ -1,5 +1,5 @@
 name: waygo
-description: "A new Flutter project."
+description: "A real-time bus tracking Flutter app."
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -10,24 +10,29 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  google_fonts: ^6.3.2
-  http: ^1.1.0
 
-  # Google Maps packages
+  # 🌍 Google Maps
   google_maps_flutter: ^2.7.0
   google_maps_flutter_web: ^0.5.14+2
 
-  # Location and permissions
+  # 📍 Location & Permissions
   geolocator: ^14.0.2
   permission_handler: ^12.0.1
 
-  # Internationalization
+  # 🔌 Realtime communication
+  socket_io_client: ^3.1.2
+
+  # 🌐 HTTP requests
+  http: ^1.1.0
+
+  # ✍️ Fonts & UI
+  google_fonts: ^6.3.2
   intl: ^0.20.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^6.0.0
+  flutter_lints: ^3.0.0
 
 flutter:
   uses-material-design: true
