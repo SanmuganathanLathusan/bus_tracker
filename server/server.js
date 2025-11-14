@@ -7,9 +7,7 @@ const { Server } = require("socket.io");
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: {
-    origin: "*", // allow all clients (Flutter)
-  },
+  cors: { origin: "*" },
 });
 
 app.use(cors());
@@ -23,18 +21,14 @@ mongoose.connect("mongodb://localhost:27017/bus_tracker_db", {
   .then(() => console.log("MongoDB connected"))
   .catch((err) => console.log("MongoDB connection error:", err));
 
-// === SOCKET.IO FOR REAL-TIME UPDATES ===
-let busLocations = {}; // { busId: { lat, lng } }
-
+// SOCKET.IO (optional for realtime bus locations)
+let busLocations = {};
 io.on("connection", (socket) => {
   console.log("Bus/Client connected:", socket.id);
 
-  // Listen for bus location updates from driver app
   socket.on("updateLocation", (data) => {
     const { busId, lat, lng } = data;
     busLocations[busId] = { lat, lng };
-
-    // Broadcast to all clients (passenger apps)
     io.emit("busLocations", busLocations);
   });
 
@@ -43,15 +37,16 @@ io.on("connection", (socket) => {
   });
 });
 
-// Routes
+// ROUTES
 const authRoutes = require("./routes/auth");
 const busRoutes = require("./routes/bus");
+const ticketRoutes = require("./routes/ticket");
+const scheduleRoutes = require("./routes/schedule");
+
 app.use("/api/auth", authRoutes);
 app.use("/api/buses", busRoutes);
+app.use("/api/tickets", ticketRoutes);
+app.use("/api/schedule", scheduleRoutes);
 
 const PORT = 5000;
-server.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
-const ticketRoutes = require("./routes/ticket");
-app.use("/api/tickets", ticketRoutes);
+server.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
