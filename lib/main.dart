@@ -15,6 +15,8 @@ import 'screens/login_screen.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/forgotpassword.dart';
 
+
+
 void main() {
   runApp(const MyApp());
 }
@@ -43,7 +45,8 @@ class MyApp extends StatelessWidget {
         '/schedule': (context) => const Schedule(),
         '/seats': (context) => const SeatReservation(),
         '/prices': (context) => const TicketPrices(),
-        '/eticket': (context) => const Etickets(),
+      '/eticket': (context) => TicketPurchasePage(userId: '123'), // remove const
+
         '/forgot_password': (context) => const ForgotPasswordPage(),
       },
     );
