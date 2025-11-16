@@ -1,15 +1,10 @@
+// server/routes/bus.js
 const express = require('express');
-const router = express.Router();
-const Bus = require('../models/Bus');
+const { updateBusLocation, getBusLocation } = require('../controllers/busController');
 
-// Get all buses
-router.get('/', async (req, res) => {
-  try {
-    const buses = await Bus.find();
-    res.json(buses);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
+const router = express.Router();
+
+router.post('/location', updateBusLocation);   // POST for updating location
+router.get('/:busId', getBusLocation);         // GET for fetching bus location
 
 module.exports = router;
