@@ -17,6 +17,8 @@ dependencies:
 
   # 📍 Location & Permissions
   geolocator: ^14.0.2
+  flutter_background: ^1.2.0
+
   permission_handler: ^12.0.1
 
   # 🔌 Realtime communication
@@ -53,3 +55,4 @@ flutter:
     - assest/schedule.jpg
     - assest/seat_reserve.jpg
     - assest/ticket_price.jpg
+    
