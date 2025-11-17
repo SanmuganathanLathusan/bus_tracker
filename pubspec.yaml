@@ -5,20 +5,23 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: ">=3.0.0 <4.0.0"
+  sdk: "^3.9.0"
 
 dependencies:
   flutter:
     sdk: flutter
+  flutter_dotenv: ^5.0.2
 
-  # 🌍 Google Maps
+  cupertino_icons: ^1.0.2
+  flutter_polyline_points: 3.1.0
   google_maps_flutter: ^2.7.0
   google_maps_flutter_web: ^0.5.14+2
+  location: ^5.0.0
+  flutter_svg: ^1.1.0
 
   # 📍 Location & Permissions
   geolocator: ^14.0.2
   flutter_background: ^1.2.0
-
   permission_handler: ^12.0.1
 
   # 🔌 Realtime communication
@@ -26,6 +29,7 @@ dependencies:
 
   # 🌐 HTTP requests
   http: ^1.1.0
+ 
 
   # ✍️ Fonts & UI
   google_fonts: ^6.3.2

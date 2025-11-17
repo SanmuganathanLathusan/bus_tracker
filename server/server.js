@@ -5,7 +5,7 @@ const cors = require("cors");
 const http = require("http");
 const { Server } = require("socket.io");
 const connectDB = require("./config/db");
-const busRoutes = require("./routes/bus");
+
 
 const app = express();
 const server = http.createServer(app);
@@ -37,7 +37,7 @@ io.on("connection", (socket) => {
 app.use("/api/auth", require("./routes/auth"));
 app.use("/api/tickets", require("./routes/ticket"));
 app.use("/api/schedule", require("./routes/schedule"));
-app.use("/api/bus/:id", busRoutes);
+
 
 // PORT
 const PORT = process.env.PORT || 5000;
