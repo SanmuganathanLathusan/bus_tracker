@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-
 // Screens
 import 'screens/HomePage.dart';
 import 'screens/pages/etickets_page.dart';
@@ -14,8 +13,7 @@ import 'screens/splash.dart';
 import 'screens/login_screen.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/forgotpassword.dart';
-
-
+ // new mock live bus page
 
 void main() {
   runApp(const MyApp());
@@ -42,11 +40,11 @@ class MyApp extends StatelessWidget {
         '/home': (context) => const HomePage(),
         '/news': (context) => const MainNews(),
         '/live_location': (context) => const LiveLocationPage(),
+        
         '/schedule': (context) => const Schedule(),
         '/seats': (context) => const SeatReservation(),
         '/prices': (context) => const TicketPrices(),
-      '/eticket': (context) => TicketPurchasePage(userId: '123'), // remove const
-
+        '/eticket': (context) => TicketPurchasePage(userId: '123'), // remove const
         '/forgot_password': (context) => const ForgotPasswordPage(),
       },
     );
