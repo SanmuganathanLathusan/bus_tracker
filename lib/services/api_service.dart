@@ -4,7 +4,8 @@ import 'package:http/http.dart' as http;
 class ApiService {
   static const String baseUrl = 'http://192.168.42.38:5000/api';
 
-  // Register user
+  // Sends user information to the server to create a new account
+
   static Future<Map<String, dynamic>> registerUser({
     required String name,
     required String email,
@@ -24,7 +25,8 @@ class ApiService {
     }
   }
 
-  // Login user
+ // Handles API request for user authentication using provided login credentials
+
   static Future<Map<String, dynamic>> loginUser({
     required String email,
     required String password,
@@ -43,7 +45,8 @@ class ApiService {
     }
   }
 
-  // Forgot password
+ // API call to initiate the password reset process by sending the user's email to the server
+
   static Future<Map<String, dynamic>> forgotPassword({
     required String email,
   }) async {
