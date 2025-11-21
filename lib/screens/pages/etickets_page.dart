@@ -30,31 +30,41 @@ class _TicketPurchasePageState extends State<TicketPurchasePage> {
 }
 
 
-  // Traveller Details
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _mobileController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _nicController = TextEditingController();
+  // Traveler Information (slightly reworded comment)
+final TextEditingController nameCtrl = TextEditingController();
+final TextEditingController mobileCtrl = TextEditingController();
+final TextEditingController emailCtrl = TextEditingController();
+final TextEditingController nicCtrl = TextEditingController();
 
-  // Booking Details
-  final TextEditingController _routeController = TextEditingController(text: 'Colombo to Jaffna');
-  final TextEditingController _busIdController = TextEditingController(text: 'KCB7-2000-C/2');
-  final TextEditingController _seatController = TextEditingController(text: '1');
-  final double farePerSeat = 1385.40;
-  double totalPrice = 1385.40;
+// Booking Information (same values, different format)
+final TextEditingController routeCtrl =
+    TextEditingController(text: 'Colombo ➝ Jaffna');
+final TextEditingController busIdCtrl =
+    TextEditingController(text: 'KCB7-2000-C/2');
+final TextEditingController seatCtrl = TextEditingController(text: '1');
 
-  // Payment
-  PaymentMethod _paymentMethod = PaymentMethod.Card;
-  String? _cardType = 'Visa';
-  String? _selectedMonth = '01';
-  String? _selectedYear = DateTime.now().year.toString();
-  String? _selectedBank;
-  final TextEditingController _cardHolderController = TextEditingController();
-  final TextEditingController _cardNumberController = TextEditingController();
-  final TextEditingController _cvvController = TextEditingController();
+// No change to calculation logic
+final double seatFare = 1385.40;
+double bookingTotal = 1385.40;
 
-  final List<String> _months = List.generate(12, (i) => (i + 1).toString().padLeft(2, '0'));
-  final List<String> _years = List.generate(10, (i) => (DateTime.now().year + i).toString());
+// Payment Section (same default values)
+PaymentMethod selectedMethod = PaymentMethod.Card;
+String? cardProvider = 'Visa';
+String? monthSelected = '01';
+String? yearSelected = DateTime.now().year.toString();
+String? chosenBank;
+
+// Card Details Controllers (name changed only)
+final TextEditingController holderCtrl = TextEditingController();
+final TextEditingController numberCtrl = TextEditingController();
+final TextEditingController cvvCtrl = TextEditingController();
+
+// Month and Year List (same logic, clearer names)
+final List<String> monthOptions =
+    List.generate(12, (index) => (index + 1).toString().padLeft(2, '0'));
+final List<String> yearOptions =
+    List.generate(10, (index) => (DateTime.now().year + index).toString());
+
 
   @override
   void dispose() {
