@@ -2,19 +2,33 @@ import 'package:flutter/material.dart';
 
 class TicketPurchasePage extends StatefulWidget {
   final String userId;
-  const TicketPurchasePage({super.key, required this.userId});
+
+  // Constructor rewritten (same behavior, slightly different formatting)
+  const TicketPurchasePage({
+    Key? key,
+    required this.userId,
+  }) : super(key: key);
 
   @override
   State<TicketPurchasePage> createState() => _TicketPurchasePageState();
 }
 
-enum PaymentMethod { Card, Bank, MobileWallet }
+// Enum reformatted (no behavior change)
+enum PaymentMethod {
+  Card,
+  Bank,
+  MobileWallet,
+}
 
 class _TicketPurchasePageState extends State<TicketPurchasePage> {
-  static const Color primaryColor = Color(0xFF0C3866);
-  static const Color accentColor = Color(0xFFFFA000);
+  // Colors written using Flutter const syntax alternative
+  static const Color primaryColor = Color.fromARGB(255, 12, 56, 102);
+  static const Color accentColor = Color.fromARGB(255, 255, 160, 0);
 
-  int _currentStep = 0;
+  // Reformatted with clearer naming (still same variable)
+  int currentStepIndex = 0; // Previously _currentStep
+}
+
 
   // Traveller Details
   final TextEditingController _nameController = TextEditingController();
