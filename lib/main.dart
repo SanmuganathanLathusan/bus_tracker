@@ -1,21 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:waygo/user_screen/HomePage.dart';
+import 'package:waygo/user_screen/forgotpassword.dart';
+import 'package:waygo/user_screen/passenger_dashboard.dart';
+import 'package:waygo/user_screen/pages/etickets_page.dart';
+import 'package:waygo/user_screen/pages/live_location_page.dart';
+import 'package:waygo/user_screen/pages/news_page.dart';
+import 'package:waygo/user_screen/pages/schedule_page.dart';
+import 'package:waygo/user_screen/pages/seat_reserve/seat_reservation_home.dart';
+import 'package:waygo/user_screen/pages/ticket_prices_page.dart';
+import 'package:waygo/user_screen/signup.dart';
+import 'package:waygo/user_screen/splash.dart';
+import 'package:waygo/user_screen/welcome_screen.dart';
+import 'package:waygo/admin_screen/admin_dashboard.dart';
+import 'package:waygo/driver_screen/driver_dashboard.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 
-// Screens
-import 'screens/HomePage.dart';
-import 'screens/pages/etickets_page.dart';
-import 'screens/pages/live_location_page.dart';
-import 'screens/pages/news_page.dart';
-import 'screens/pages/schedule_page.dart';
-import 'screens/pages/seat_reservation_page.dart';
-import 'screens/pages/ticket_prices_page.dart';
-import 'screens/signup.dart';
-import 'screens/splash.dart';
-import 'screens/login_screen.dart';
-import 'screens/welcome_screen.dart';
-import 'screens/forgotpassword.dart';
- // new mock live bus page
+// import your new dashboard pages
 
 void main() {
+  Stripe.publishableKey =
+      'pk_test_51SU6ZjF3HPXggBggcZjc2M9KhXNMymVXveo6HhKzRqzMtmzOX1CiLUEwDByUNN3XbZUGfGdhRwebp8rc9cfPoB1400pHxV9q8O';
   runApp(const MyApp());
 }
 
@@ -28,24 +32,28 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'WayGo',
       theme: ThemeData(
-        primarySwatch: Colors.blue,
-        useMaterial3: true,
+        primarySwatch: Colors.blue, // later replace with AppColors
       ),
       initialRoute: '/',
       routes: {
         '/': (context) => const SplashScreen(),
-        '/login': (context) => const LoginScreen(),
-        '/signup': (context) => const SignUpScreen(),
         '/welcome': (context) => const WelcomeScreen(),
+        '/signup': (context) => const SignUpScreen(),
         '/home': (context) => const HomePage(),
+        '/forgot-password': (context) => const ForgotPasswordPage(),
+
+        // Role-based dashboards
+        '/passenger-dashboard': (context) => const PassengerDashboard(),
+        '/admin-dashboard': (context) => const AdminDashboard(),
+        '/driver-dashboard': (context) => const DriverDashboard(),
+
+        // dashboard routes
         '/news': (context) => const MainNews(),
         '/live_location': (context) => const LiveLocationPage(),
-        
         '/schedule': (context) => const Schedule(),
-        '/seats': (context) => const SeatReservation(),
+        '/seats': (context) => const SeatReservationHome(),
         '/prices': (context) => const TicketPrices(),
-        '/eticket': (context) => TicketPurchasePage(userId: '123'), // remove const
-        '/forgot_password': (context) => const ForgotPasswordPage(),
+        '/eticket': (context) => const Etickets(),
       },
     );
   }

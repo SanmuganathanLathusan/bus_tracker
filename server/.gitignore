@@ -1,0 +1,57 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Environment / secrets
+.env
+auth_backend/.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+
+# Uploads / generated files
+uploads/
+dist/
+build/
+
+# Logs
+*.log
+logs/
+pids/
+*.pid
+*.seed
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.iml
+
+# Coverage / test
+coverage/
+.nyc_output/
+
+# Android / iOS (if Flutter)
+.android/
+build/
+.flutter-plugins
+.flutter-plugins-deps
+.packages
+.pub-cache/
+.pub/
+*.xcworkspace
+*.xcuserdatad
+ios/Pods/
+ios/Runner.xcworkspace/
+
+# Misc
+*.swp
+.env
