@@ -20,12 +20,16 @@ android {
     }
 
     defaultConfig {
-        // TODO: Replace with your unique Application ID
-        applicationId = "com.example.simple_counter_app"
-        minSdk = flutter.minSdkVersion
+        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
+        applicationId = "com.example.waygo"
+        // You can update the following values to match your application needs.
+        // For more information, see: https://flutter.dev/to/review-gradle-config.
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        minSdk = flutter.minSdkVersion  // Stripe requires at least 21
+        
     }
 
     buildTypes {
