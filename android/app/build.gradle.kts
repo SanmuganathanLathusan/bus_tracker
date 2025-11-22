@@ -1,7 +1,7 @@
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
+    // Flutter Gradle Plugin should be applied after Android and Kotlin plugins
     id("dev.flutter.flutter-gradle-plugin")
 }
 
@@ -11,8 +11,8 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        this.sourceCompatibility = JavaVersion.VERSION_11
+        this.targetCompatibility = JavaVersion.VERSION_11
     }
 
     kotlinOptions {
@@ -33,14 +33,13 @@ android {
     }
 
     buildTypes {
-        release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+        getByName("release") {
+            // TODO: Add your own signing config for release
             signingConfig = signingConfigs.getByName("debug")
         }
     }
 }
 
 flutter {
-    source = "../.."
+    source = file("../..")
 }
