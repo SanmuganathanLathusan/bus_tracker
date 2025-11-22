@@ -4,13 +4,7 @@ class MainNews extends StatelessWidget {
   const MainNews({super.key});
 
   final List<Map<String, String>> mockNews = const [
-    {
-      "title": "Colombo Fort Bus Stand Renovation Completed",
-      "subtitle":
-          "The central bus stand now features new waiting areas and improved ticket counters.",
-      "time": "3 hours ago",
-      "image": "https://images.pexels.com/photos/139406/pexels-photo-139406.jpeg"
-    },
+  
     {
       "title": "Kandy–Colombo Bus Delays Reported",
       "subtitle":
@@ -18,27 +12,7 @@ class MainNews extends StatelessWidget {
       "time": "1 hour ago",
       "image": "https://images.pexels.com/photos/256210/pexels-photo-256210.jpeg"
     },
-    {
-      "title": "New AC Luxury Bus Service Launched",
-      "subtitle":
-          "SLTB introduces new luxury express buses for long-distance routes.",
-      "time": "6 hours ago",
-      "image": "https://images.pexels.com/photos/238133/pexels-photo-238133.jpeg"
-    },
-    {
-      "title": "Minor Bus Accident Reported",
-      "subtitle":
-          "A private bus skidded on a wet road. No major injuries were reported.",
-      "time": "2 hours ago",
-      "image": "https://images.pexels.com/photos/65219/pexels-photo-65219.jpeg"
-    },
-    {
-      "title": "Ticket Price Revision Expected",
-      "subtitle":
-          "Fuel price drop may reduce long-distance bus fares, says SLTB.",
-      "time": "4 hours ago",
-      "image": "https://images.pexels.com/photos/161931/bus-travel-tour-161931.jpeg"
-    },
+  
     {
       "title": "Crowd Rush at Pettah Bus Stand",
       "subtitle":

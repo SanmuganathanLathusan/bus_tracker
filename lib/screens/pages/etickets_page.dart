@@ -2,332 +2,261 @@ import 'package:flutter/material.dart';
 
 class TicketPurchasePage extends StatefulWidget {
   final String userId;
-
   const TicketPurchasePage({super.key, required this.userId});
 
   @override
   State<TicketPurchasePage> createState() => _TicketPurchasePageState();
 }
 
+enum PaymentMethod { Card, Bank, MobileWallet }
+
 class _TicketPurchasePageState extends State<TicketPurchasePage> {
-  // Constants for styling
-  static const Color primaryColor = Color(0xFF0C3866); // Dark Navy Blue
-  static const Color accentColor = Color(0xFFFFA000); // Amber/Orange for Action
+  static const Color primaryColor = Color(0xFF0C3866);
+  static const Color accentColor = Color(0xFFFFA000);
 
-  // Payment and UI State
-  String? _cardType = 'Visa';
-  String? _selectedMonth = '01';
-  String? _selectedYear = '2025';
+  int _currentStep = 0;
 
-  // Input Controllers for Booking Details (now editable inputs)
+  // Traveller Details
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _mobileController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _nicController = TextEditingController();
+
+  // Booking Details
   final TextEditingController _routeController = TextEditingController(text: 'Colombo to Jaffna');
   final TextEditingController _busIdController = TextEditingController(text: 'KCB7-2000-C/2');
-  final TextEditingController _seatController = TextEditingController(text: '40'); 
-  final TextEditingController _priceController = TextEditingController(text: '1385.40');
-  
-  // Traveller Details Controllers
-  final TextEditingController _nameController = TextEditingController(text: 'John A. Doe');
-  final TextEditingController _mobileController = TextEditingController(text: '701234567');
-  final TextEditingController _emailController = TextEditingController(text: 'name@example.lk');
-  final TextEditingController _nicController = TextEditingController(text: '012345678V');
+  final TextEditingController _seatController = TextEditingController(text: '1');
+  final double farePerSeat = 1385.40;
+  double totalPrice = 1385.40;
 
-  final List<String> _months = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
-  final List<String> _years = List<String>.generate(10, (i) => (DateTime.now().year + i).toString());
+  // Payment
+  PaymentMethod _paymentMethod = PaymentMethod.Card;
+  String? _cardType = 'Visa';
+  String? _selectedMonth = '01';
+  String? _selectedYear = DateTime.now().year.toString();
+  String? _selectedBank;
+  final TextEditingController _cardHolderController = TextEditingController();
+  final TextEditingController _cardNumberController = TextEditingController();
+  final TextEditingController _cvvController = TextEditingController();
+
+  final List<String> _months = List.generate(12, (i) => (i + 1).toString().padLeft(2, '0'));
+  final List<String> _years = List.generate(10, (i) => (DateTime.now().year + i).toString());
 
   @override
   void dispose() {
-    _routeController.dispose();
-    _busIdController.dispose();
-    _seatController.dispose();
-    _priceController.dispose();
     _nameController.dispose();
     _mobileController.dispose();
     _emailController.dispose();
     _nicController.dispose();
+    _routeController.dispose();
+    _busIdController.dispose();
+    _seatController.dispose();
+    _cardHolderController.dispose();
+    _cardNumberController.dispose();
+    _cvvController.dispose();
     super.dispose();
   }
 
-  // --- Section 1: Traveller Information ---
+  // Validation
+  bool _validateTraveller() {
+    final mobileRegex = RegExp(r'^07\d{8}$');
+    final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
+    final nicRegex = RegExp(r'^(\d{9}[VvXx]|\d{12})$');
 
-  Widget _buildTravellerDetailsSection() {
-    return _buildSectionCard(
-      title: '1. Traveller Information',
-      icon: Icons.person,
-      children: [
-        // Traveller Form fields
-        Wrap(
-          spacing: 20.0,
-          runSpacing: 20.0,
-          children: [
-            _buildDetailField(label: 'Full Name', hint: 'John A. Doe', controller: _nameController, isRequired: true),
-            _buildDetailField(label: 'Mobile No.', hint: '701234567', controller: _mobileController, isRequired: true, keyboardType: TextInputType.phone),
-            _buildDetailField(label: 'eMail', hint: 'name@example.lk', controller: _emailController, isRequired: true, keyboardType: TextInputType.emailAddress),
-            _buildDetailField(label: 'NIC/Passport No.', hint: '012345678V', controller: _nicController, isRequired: false),
-          ],
-        ),
-      ],
+    if (_nameController.text.isEmpty ||
+        !mobileRegex.hasMatch(_mobileController.text) ||
+        !emailRegex.hasMatch(_emailController.text) ||
+        (_nicController.text.isNotEmpty && !nicRegex.hasMatch(_nicController.text))) {
+      return false;
+    }
+    return true;
+  }
+
+  bool _validatePayment() {
+    if (_paymentMethod == PaymentMethod.Card) {
+      return _cardHolderController.text.isNotEmpty &&
+          _cardNumberController.text.length == 16 &&
+          _cvvController.text.length >= 3;
+    }
+    if (_paymentMethod == PaymentMethod.Bank) return _selectedBank != null;
+    if (_paymentMethod == PaymentMethod.MobileWallet) return _mobileController.text.isNotEmpty;
+    return false;
+  }
+
+  void _updateTotalPrice() {
+    int seats = int.tryParse(_seatController.text) ?? 1;
+    setState(() {
+      totalPrice = seats * farePerSeat;
+    });
+  }
+
+  Future<void> _processPayment() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator(color: accentColor)),
+    );
+    await Future.delayed(const Duration(seconds: 2));
+    if (mounted) Navigator.pop(context);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Payment of Rs. ${totalPrice.toStringAsFixed(2)} successful!'),
+        backgroundColor: Colors.green,
+      ),
     );
   }
 
-  // --- Section 2: Booking Details (Inputs) ---
-
-  Widget _buildBookingDetailsSection() {
-    return _buildSectionCard(
-      title: '2. Booking Details',
-      icon: Icons.directions_bus, 
-      children: [
-        // Booking Input Fields
-        Wrap(
-          spacing: 20.0,
-          runSpacing: 20.0,
+  // Stepper Steps
+  List<Step> _buildSteps() {
+    return [
+      Step(
+        title: const Text('Traveller'),
+        content: Column(
           children: [
-            _buildDetailField(label: 'Bus Route', hint: 'E.g., Colombo to Jaffna', controller: _routeController, isRequired: true),
-            _buildDetailField(label: 'Bus ID/Number', hint: 'E.g., KCB7-2000-C/2', controller: _busIdController, isRequired: true),
-            _buildDetailField(label: 'Seat Number', hint: 'E.g., 40', controller: _seatController, isRequired: true, keyboardType: TextInputType.number),
-            _buildDetailField(label: 'Total Price (Rs.)', hint: 'E.g., 1385.40', controller: _priceController, isRequired: true, keyboardType: TextInputType.number),
+            _buildTextField(_nameController, 'Full Name *', TextInputType.name),
+            _buildTextField(_mobileController, 'Mobile No. *', TextInputType.phone),
+            _buildTextField(_emailController, 'Email *', TextInputType.emailAddress),
+            _buildTextField(_nicController, 'NIC / Passport No.', TextInputType.text),
           ],
         ),
-        const SizedBox(height: 20),
-        
-        // Floating Price Label (Updates in real-time)
-        Align(
-          alignment: Alignment.centerRight,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
-            decoration: BoxDecoration(
-              color: primaryColor.withOpacity(0.95),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: ValueListenableBuilder<TextEditingValue>(
-              valueListenable: _priceController,
-              builder: (context, value, child) {
-                // Safely format the price for display
-                final price = value.text.isNotEmpty ? value.text : '0.00';
-                return Text(
-                  'PAYABLE: Rs. $price',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // --- Section 3: Payment Details ---
-
-  Widget _buildPaymentDetailsSection() {
-    return _buildSectionCard(
-      title: '3. Payment Details (Credit/Debit Card)', // Updated number
-      icon: Icons.payment,
-      children: [
-        // Card Type Radio Buttons
-        const Text('Select Card Type *', style: TextStyle(fontWeight: FontWeight.w600, color: primaryColor)),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        isActive: _currentStep >= 0,
+        state: _currentStep > 0 ? StepState.complete : StepState.indexed,
+      ),
+      Step(
+        title: const Text('Booking'),
+        content: Column(
           children: [
-            _buildCardRadio('Visa'),
-            _buildCardRadio('Mastercard'),
-            _buildCardRadio('Amex'),
+            _buildReadOnlyField(_routeController, 'Bus Route'),
+            _buildReadOnlyField(_busIdController, 'Bus ID'),
+            _buildTextField(_seatController, 'Seat(s)', TextInputType.number, onChanged: (_) => _updateTotalPrice()),
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Text('Total Price: Rs. ${totalPrice.toStringAsFixed(2)}',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: primaryColor)),
+            ),
           ],
         ),
-        const SizedBox(height: 15),
-
-        // Card Holder Name
-        _buildPaymentField('Card Holder Name *', 'Name on card', TextInputType.text),
-
-        // Card Number
-        _buildPaymentField('Card Number *', 'Enter 16 digit card number', TextInputType.number),
-        
-        // Expiration Date and CVV
-        Row(
+        isActive: _currentStep >= 1,
+        state: _currentStep > 1 ? StepState.complete : StepState.indexed,
+      ),
+      Step(
+        title: const Text('Payment'),
+        content: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: _buildPaymentDropdown(label: 'Exp. Month *', items: _months, selectedValue: _selectedMonth, onChanged: (v) => setState(() => _selectedMonth = v)),
-            ),
-            const SizedBox(width: 15),
-            Expanded(
-              child: _buildPaymentDropdown(label: 'Exp. Year *', items: _years, selectedValue: _selectedYear, onChanged: (v) => setState(() => _selectedYear = v)),
-            ),
-            const SizedBox(width: 15),
-            Expanded(
-              child: _buildPaymentField('CVV *', '123', TextInputType.number, isCVN: true),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  // --- Helper Widgets ---
-
-  // Utility to create consistent section wrappers
-  Widget _buildSectionCard({required String title, required List<Widget> children, IconData icon = Icons.person}) {
-    return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      margin: const EdgeInsets.only(bottom: 20),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+            const Text('Select Payment Method *', style: TextStyle(fontWeight: FontWeight.w600)),
+            Wrap(
+              spacing: 10,
               children: [
-                Icon(icon, color: primaryColor, size: 24),
-                const SizedBox(width: 10),
-                Text(
-                  title, 
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: primaryColor),
-                ),
+                _buildPaymentMethodRadio(PaymentMethod.Card, 'Card'),
+                _buildPaymentMethodRadio(PaymentMethod.Bank, 'Bank'),
+                _buildPaymentMethodRadio(PaymentMethod.MobileWallet, 'Wallet'),
               ],
             ),
-            const Divider(),
             const SizedBox(height: 10),
-            
-            // Layout all children (which may include Wraps) in a column sequence
-            ...children, 
+            if (_paymentMethod == PaymentMethod.Card) _buildCardPaymentFields(),
+            if (_paymentMethod == PaymentMethod.Bank) _buildBankDropdown(['BOC', 'HNB', 'Sampath']),
+            if (_paymentMethod == PaymentMethod.MobileWallet)
+              _buildTextField(_mobileController, 'Wallet Phone Number *', TextInputType.phone),
           ],
+        ),
+        isActive: _currentStep >= 2,
+        state: StepState.indexed,
+      ),
+    ];
+  }
+
+  // Widget Helpers
+  Widget _buildTextField(TextEditingController controller, String label, TextInputType type,
+      {Function(String)? onChanged}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextFormField(
+        controller: controller,
+        keyboardType: type,
+        onChanged: onChanged,
+        decoration: InputDecoration(
+          labelText: label,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         ),
       ),
     );
   }
 
-  // Utility for general input fields (Traveller/Booking)
-  Widget _buildDetailField({required String label, required String hint, required TextEditingController controller, bool isRequired = false, TextInputType keyboardType = TextInputType.text}) {
-    return SizedBox(
-      width: 250, // Fixed width for fields in Wrap layout
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          RichText(
-            text: TextSpan(
-              text: label,
-              style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w600),
-              children: isRequired
-                  ? [
-                      const TextSpan(
-                        text: ' *',
-                        style: TextStyle(color: Colors.red),
-                      ),
-                    ]
-                  : null,
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextFormField(
-            controller: controller,
-            keyboardType: keyboardType,
-            decoration: InputDecoration(
-              hintText: hint,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.grey.shade400),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: accentColor, width: 2),
-              ),
-            ),
-          ),
-        ],
+  Widget _buildReadOnlyField(TextEditingController controller, String label) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextFormField(
+        controller: controller,
+        readOnly: true,
+        decoration: InputDecoration(
+          labelText: label,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          fillColor: Colors.grey.shade200,
+          filled: true,
+        ),
       ),
     );
   }
 
-  // Utility for Payment Card Radio Buttons
-  Widget _buildCardRadio(String value) {
+  Widget _buildPaymentMethodRadio(PaymentMethod method, String label) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Radio<String>(
-          value: value,
-          groupValue: _cardType,
+        Radio<PaymentMethod>(
+          value: method,
+          groupValue: _paymentMethod,
+          onChanged: (val) => setState(() => _paymentMethod = val!),
           activeColor: primaryColor,
-          onChanged: (String? val) => setState(() => _cardType = val),
         ),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.w500)),
+        Text(label),
       ],
     );
   }
 
-  // Utility for Payment Card Text Fields
-  Widget _buildPaymentField(String label, String hint, TextInputType keyboardType, {bool isCVN = false}) {
+  Widget _buildCardPaymentFields() {
+    return Column(
+      children: [
+        _buildDropdown('Card Type', ['Visa', 'Mastercard', 'Amex'], _cardType, (v) => setState(() => _cardType = v)),
+        _buildTextField(_cardHolderController, 'Card Holder Name *', TextInputType.text),
+        _buildTextField(_cardNumberController, 'Card Number *', TextInputType.number),
+        Row(
+          children: [
+            Expanded(
+              child: _buildDropdown('Month', _months, _selectedMonth, (v) => setState(() => _selectedMonth = v)),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildDropdown('Year', _years, _selectedYear, (v) => setState(() => _selectedYear = v)),
+            ),
+            const SizedBox(width: 8),
+            Expanded(child: _buildTextField(_cvvController, 'CVV', TextInputType.number)),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDropdown(String label, List<String> items, String? value, ValueChanged<String?> onChanged) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 20.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.black87)),
-          const SizedBox(height: 8),
-          TextFormField(
-            keyboardType: keyboardType,
-            obscureText: isCVN,
-            decoration: InputDecoration(
-              hintText: hint,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.grey.shade400),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: accentColor, width: 2),
-              ),
-              suffixIcon: isCVN ? const Icon(Icons.lock_outline, size: 18, color: Colors.grey) : null,
-            ),
-          ),
-          if (isCVN)
-            Padding(
-              padding: const EdgeInsets.only(top: 4.0),
-              child: Text(
-                '3 or 4 digit security code.',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-              ),
-            ),
-        ],
+      padding: const EdgeInsets.only(bottom: 12),
+      child: DropdownButtonFormField<String>(
+        decoration: InputDecoration(
+          labelText: label,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        value: value,
+        isExpanded: true,
+        items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+        onChanged: onChanged,
       ),
     );
   }
 
-  // Utility for Payment Card Dropdowns
-  Widget _buildPaymentDropdown({required String label, required List<String> items, required String? selectedValue, required ValueChanged<String?> onChanged}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.black87)),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade400),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              isExpanded: true,
-              value: selectedValue,
-              icon: const Icon(Icons.arrow_drop_down, color: primaryColor),
-              style: const TextStyle(color: Colors.black, fontSize: 16),
-              items: items.map((String value) {
-                return DropdownMenuItem<String>(
-                  value: value,
-                  child: Text(value),
-                );
-              }).toList(),
-              onChanged: onChanged,
-            ),
-          ),
-        ),
-      ],
-    );
+  Widget _buildBankDropdown(List<String> banks) {
+    _selectedBank ??= banks.first;
+    return _buildDropdown('Select Bank', banks, _selectedBank, (v) => setState(() => _selectedBank = v));
   }
 
   @override
@@ -335,61 +264,63 @@ class _TicketPurchasePageState extends State<TicketPurchasePage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'Complete Your Booking', 
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)
+          'Bus Ticket Purchase',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         backgroundColor: primaryColor,
-        elevation: 0,
         centerTitle: true,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // 1. Traveller Details
-            _buildTravellerDetailsSection(),
-            
-            // 2. Booking Details (New input section)
-            _buildBookingDetailsSection(),
-            
-            // 3. Payment Details
-            _buildPaymentDetailsSection(),
-            
-            const SizedBox(height: 40),
-
-            // Final Proceed Button
-            ElevatedButton(
-              onPressed: () {
-                // Simple validation check (using traveller details as minimum check)
-                if (_nameController.text.isEmpty || _mobileController.text.isEmpty || _emailController.text.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please fill in all required Traveller details.')),
-                  );
-                  return;
-                }
-                
-                // Simulate Payment Process
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Processing secure payment of Rs. ${_priceController.text} for ${_routeController.text}...'),
-                    backgroundColor: Colors.green,
+        padding: const EdgeInsets.all(12),
+        child: Stepper(
+          type: StepperType.vertical,
+          physics: const ClampingScrollPhysics(),
+          currentStep: _currentStep,
+          steps: _buildSteps(),
+          onStepContinue: () async {
+            if (_currentStep == 0 && !_validateTraveller()) {
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(const SnackBar(content: Text('Please enter valid traveller details.')));
+              return;
+            } else if (_currentStep == 1) {
+              _updateTotalPrice();
+            } else if (_currentStep == 2) {
+              if (!_validatePayment()) {
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(const SnackBar(content: Text('Please enter valid payment info.')));
+                return;
+              }
+              await _processPayment();
+              return;
+            }
+            if (_currentStep < 2) setState(() => _currentStep += 1);
+          },
+          onStepCancel: () {
+            if (_currentStep > 0) setState(() => _currentStep -= 1);
+          },
+          controlsBuilder: (context, details) {
+            return Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: Row(
+                children: [
+                  ElevatedButton(
+                    onPressed: details.onStepContinue,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: accentColor,
+                      foregroundColor: primaryColor,
+                    ),
+                    child: Text(_currentStep == 2 ? 'Pay Now' : 'Next'),
                   ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: accentColor, 
-                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                elevation: 5,
+                  const SizedBox(width: 10),
+                  if (_currentStep > 0)
+                    OutlinedButton(
+                      onPressed: details.onStepCancel,
+                      child: const Text('Back'),
+                    ),
+                ],
               ),
-              child: const Text(
-                'Confirm & Pay Securely', 
-                style: TextStyle(color: primaryColor, fontSize: 18, fontWeight: FontWeight.w900)
-              ),
-            ),
-            const SizedBox(height: 20),
-          ],
+            );
+          },
         ),
       ),
     );

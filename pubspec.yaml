@@ -18,6 +18,8 @@ dependencies:
   google_maps_flutter_web: ^0.5.14+2
   location: ^5.0.0
   flutter_svg: ^1.1.0
+ 
+
 
   # 📍 Location & Permissions
   geolocator: ^14.0.2
