@@ -54,3 +54,4 @@ ios/Runner.xcworkspace/
 
 # Misc
 *.swp
+.env
