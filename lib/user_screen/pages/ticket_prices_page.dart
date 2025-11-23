@@ -177,4 +177,94 @@ class _TicketPricesState extends State<TicketPrices> {
               ],
             ),
             const Divider(height: 16),
+            // Departure/Arrival Times
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildTimeInfo(
+                  icon: Icons.access_time,
+                  label: 'Departure',
+                  time: bus.departureTime,
+                ),
+                const Icon(Icons.arrow_right_alt, color: Colors.grey),
+                _buildTimeInfo(
+                  icon: Icons.timer_off,
+                  label: 'Arrival',
+                  time: bus.arrivalTime,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Bus ID and Seats Available
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('ID: ${bus.busId}', style: TextStyle(color: Colors.grey.shade600)),
+                Row(
+                  children: [
+                    Icon(Icons.event_seat, size: 16, color: bus.seatsAvailable > 5 ? Colors.green : accentColor),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${bus.seatsAvailable} Seats Left',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: bus.seatsAvailable > 5 ? Colors.green.shade700 : accentColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Buy Ticket Button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  // Navigate to Ticket Purchase Page
+                  Navigator.pushNamed(
+                    context, 
+                    '/eticket',
+                    arguments: {'busId': bus.busId},
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: accentColor,
+                  foregroundColor: primaryColor,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text(
+                  'Buy Ticket',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Small helper widget for displaying time information
+  Widget _buildTimeInfo({required IconData icon, required String label, required String time}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 16, color: Colors.grey),
+            const SizedBox(width: 4),
+            Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(time, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+      ],
+    );
+  }
 
