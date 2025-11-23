@@ -96,4 +96,85 @@ class _TicketPricesState extends State<TicketPrices> {
     super.initState();
     _fetchBusData();
   }
+  // Function to simulate API data fetching
+  Future<void> _fetchBusData() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    // Simulate network delay for a realistic user experience
+    await Future.delayed(const Duration(seconds: 1)); 
+
+    setState(() {
+      _availableBuses = mockBuses; 
+      _isLoading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const primaryColor = Color(0xFF0C3866); // Dark Blue
+    const accentColor = Color(0xFFFFA000); // Orange
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Available Buses & Prices'),
+        backgroundColor: primaryColor,
+        foregroundColor: Colors.white,
+      ),
+      // Display a loading indicator while data is being fetched
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: primaryColor))
+          : ListView.builder(
+              padding: const EdgeInsets.all(12),
+              itemCount: _availableBuses.length,
+              itemBuilder: (context, index) {
+                final bus = _availableBuses[index];
+                return _buildBusCard(bus, primaryColor, accentColor, context);
+              },
+            ),
+    );
+  }
+
+  // Helper method to build the aesthetically improved Bus Card
+  Widget _buildBusCard(Bus bus, Color primaryColor, Color accentColor, BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade300, width: 1),
+      ),
+      elevation: 4,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Route Title & Price Row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    bus.route,
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: primaryColor,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Text(
+                  'Rs. ${bus.price.toStringAsFixed(2)}',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: accentColor,
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 16),
 
