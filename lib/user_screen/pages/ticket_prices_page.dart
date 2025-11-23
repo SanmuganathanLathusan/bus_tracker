@@ -1,9 +1,13 @@
+// lib/screens/pages/ticket_prices_page.dart
+
 import 'package:flutter/material.dart';
 
-// Mock Bus Model
+// --- Bus Model (Data Structure) ---
 class Bus {
   final String busId;
   final String route;
+  final String departureCity;
+  final String arrivalCity;
   final String departureTime;
   final String arrivalTime;
   final int seatsAvailable;
@@ -12,6 +16,8 @@ class Bus {
   Bus({
     required this.busId,
     required this.route,
+    required this.departureCity,
+    required this.arrivalCity,
     required this.departureTime,
     required this.arrivalTime,
     required this.seatsAvailable,
@@ -19,115 +25,75 @@ class Bus {
   });
 }
 
-// Mock Data
+// --- Extended Mock Data (Simulates real bus routes in Sri Lanka) ---
 List<Bus> mockBuses = [
   Bus(
-    busId: 'KCB7-2000-C/2',
-    route: 'Colombo - Jaffna',
+    busId: 'BUS-001-SLTB',
+    route: 'Colombo (Pettah) - Jaffna',
+    departureCity: 'Colombo',
+    arrivalCity: 'Jaffna',
     departureTime: '06:00 AM',
-    arrivalTime: '06:00 PM',
-    seatsAvailable: 10,
-    price: 1385.50,
+    arrivalTime: '02:30 PM',
+    seatsAvailable: 15,
+    price: 1850.00,
   ),
   Bus(
-    busId: 'BSC5-1100-A/1',
-    route: 'Colombo - Kandy',
+    busId: 'EXPRESS-005',
+    route: 'Kottawa - Kandy',
+    departureCity: 'Colombo',
+    arrivalCity: 'Kandy',
     departureTime: '07:30 AM',
-    arrivalTime: '11:30 AM',
-    seatsAvailable: 5,
-    price: 650.00,
+    arrivalTime: '10:30 AM',
+    seatsAvailable: 8,
+    price: 680.00,
   ),
   Bus(
-    busId: 'LNK8-300-C/4',
-    route: 'Kandy - Jaffna',
-    departureTime: '08:00 AM',
-    arrivalTime: '08:00 PM',
-    seatsAvailable: 8,
-    price: 1500.00,
+    busId: 'PUN-210-LUX',
+    route: 'Galle - Anuradhapura',
+    departureCity: 'Galle',
+    arrivalCity: 'Anuradhapura',
+    departureTime: '11:00 AM',
+    arrivalTime: '07:00 PM',
+    seatsAvailable: 22,
+    price: 1550.00,
+  ),
+  Bus(
+    busId: 'GLL-333-Semi',
+    route: 'Matara - Colombo',
+    departureCity: 'Matara',
+    arrivalCity: 'Colombo',
+    departureTime: '04:00 PM',
+    arrivalTime: '07:00 PM',
+    seatsAvailable: 3,
+    price: 750.00,
+  ),
+  Bus(
+    busId: 'BATT-888-NV',
+    route: 'Batticaloa - Colombo',
+    departureCity: 'Batticaloa',
+    arrivalCity: 'Colombo',
+    departureTime: '09:00 PM',
+    arrivalTime: '05:00 AM',
+    seatsAvailable: 28,
+    price: 2100.00,
   ),
 ];
 
-class TicketPrices extends StatelessWidget {
+// --- Main Widget with State Management (handles loading data) ---
+class TicketPrices extends StatefulWidget {
   const TicketPrices({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Available Buses & Prices'),
-        backgroundColor: const Color(0xFF0C3866), // Primary color
-      ),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: mockBuses.length,
-        itemBuilder: (context, index) {
-          final bus = mockBuses[index];
-          return Card(
-            margin: const EdgeInsets.only(bottom: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-            elevation: 3,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    bus.route,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text('Bus ID: ${bus.busId}'),
-                  const SizedBox(height: 5),
-                  Text(
-                    'Departure: ${bus.departureTime} - Arrival: ${bus.arrivalTime}',
-                  ),
-                  const SizedBox(height: 5),
-                  Text('Seats Available: ${bus.seatsAvailable}'),
-                  const SizedBox(height: 5),
-                  Text(
-                    'Price: Rs. ${bus.price.toStringAsFixed(2)}',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        // Navigate to Ticket Purchase Page
-                        Navigator.pushNamed(
-                          context,
-                          '/eticket',
-                          arguments: {'busId': bus.busId},
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFFA000),
-                        foregroundColor: const Color(0xFF0C3866),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: const Text(
-                        'Buy Ticket',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
+  State<TicketPrices> createState() => _TicketPricesState();
 }
+
+class _TicketPricesState extends State<TicketPrices> {
+  List<Bus> _availableBuses = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchBusData();
+  }
+
