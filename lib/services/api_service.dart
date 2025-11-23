@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  static const String baseUrl = 'http://192.168.42.38:5000/api';
+  static const String baseUrl = 'http://localhost:5000/api';
 
   // Sends user information to the server to create a new account
 

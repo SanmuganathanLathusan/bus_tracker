@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+// lib/constants/bus_data.dart
 
-// Mock Bus Model
+// Bus Model for structured data
 class Bus {
   final String busId;
   final String route;
+  final String departureCity;
+  final String arrivalCity;
   final String departureTime;
   final String arrivalTime;
   final int seatsAvailable;
@@ -12,6 +15,8 @@ class Bus {
   Bus({
     required this.busId,
     required this.route,
+    required this.departureCity,
+    required this.arrivalCity,
     required this.departureTime,
     required this.arrivalTime,
     required this.seatsAvailable,
@@ -19,32 +24,59 @@ class Bus {
   });
 }
 
-// Mock Data
+// Mock Data covering major routes in Sri Lanka
 List<Bus> mockBuses = [
   Bus(
-    busId: 'KCB7-2000-C/2',
-    route: 'Colombo - Jaffna',
+    busId: 'BUS-001-SLTB',
+    route: 'Colombo (Pettah) - Jaffna',
+    departureCity: 'Colombo',
+    arrivalCity: 'Jaffna',
     departureTime: '06:00 AM',
-    arrivalTime: '06:00 PM',
-    seatsAvailable: 10,
-    price: 1385.50,
+    arrivalTime: '02:30 PM',
+    seatsAvailable: 15,
+    price: 1850.00,
   ),
   Bus(
-    busId: 'BSC5-1100-A/1',
-    route: 'Colombo - Kandy',
+    busId: 'EXPRESS-005',
+    route: 'Colombo (Kottawa) - Kandy',
+    departureCity: 'Colombo',
+    arrivalCity: 'Kandy',
     departureTime: '07:30 AM',
-    arrivalTime: '11:30 AM',
-    seatsAvailable: 5,
-    price: 650.00,
+    arrivalTime: '10:30 AM',
+    seatsAvailable: 8,
+    price: 680.00,
   ),
   Bus(
-    busId: 'LNK8-300-C/4',
-    route: 'Kandy - Jaffna',
-    departureTime: '08:00 AM',
-    arrivalTime: '08:00 PM',
-    seatsAvailable: 8,
-    price: 1500.00,
+    busId: 'PUN-210-LUX',
+    route: 'Kandy - Anuradhapura',
+    departureCity: 'Kandy',
+    arrivalCity: 'Anuradhapura',
+    departureTime: '11:00 AM',
+    arrivalTime: '03:00 PM',
+    seatsAvailable: 22,
+    price: 750.00,
   ),
+  Bus(
+    busId: 'GLL-333-Semi',
+    route: 'Galle - Matara',
+    departureCity: 'Galle',
+    arrivalCity: 'Matara',
+    departureTime: '04:00 PM',
+    arrivalTime: '05:30 PM',
+    seatsAvailable: 3,
+    price: 250.00,
+  ),
+  Bus(
+    busId: 'BATT-888-NV',
+    route: 'Batticaloa - Colombo',
+    departureCity: 'Batticaloa',
+    arrivalCity: 'Colombo',
+    departureTime: '09:00 PM',
+    arrivalTime: '05:00 AM',
+    seatsAvailable: 28,
+    price: 2100.00,
+  ),
+
 ];
 
 class TicketPrices extends StatelessWidget {
