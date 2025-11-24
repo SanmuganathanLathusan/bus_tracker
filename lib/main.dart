@@ -15,8 +15,6 @@ import 'package:waygo/admin_screen/admin_dashboard.dart';
 import 'package:waygo/driver_screen/driver_dashboard.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 
-// import your new dashboard pages
-
 void main() {
   Stripe.publishableKey =
       'pk_test_51SU6ZjF3HPXggBggcZjc2M9KhXNMymVXveo6HhKzRqzMtmzOX1CiLUEwDByUNN3XbZUGfGdhRwebp8rc9cfPoB1400pHxV9q8O';
@@ -32,9 +30,10 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'WayGo',
       theme: ThemeData(
-        primarySwatch: Colors.blue, // later replace with AppColors
+        primarySwatch: Colors.blue,
       ),
       initialRoute: '/',
+      
       routes: {
         '/': (context) => const SplashScreen(),
         '/welcome': (context) => const WelcomeScreen(),
@@ -52,8 +51,8 @@ class MyApp extends StatelessWidget {
         '/live_location': (context) => const LiveLocationPage(),
         '/schedule': (context) => const Schedule(),
         '/seats': (context) => const SeatReservationHome(),
-        '/prices': (context) => const TicketPrices(),
-        '/eticket': (context) => const Etickets(),
+        '/prices': (context) => const TicketPrices(), 
+        '/eticket': (context) => ETicketPage(reservationId: ''), 
       },
     );
   }
