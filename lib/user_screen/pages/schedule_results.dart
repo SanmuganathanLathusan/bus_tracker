@@ -39,3 +39,44 @@ class ScheduleResultsPage extends StatelessWidget {
               itemBuilder: (context, index) {
                 final bus = results[index]; // Get bus details
                 
+                return Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white, // Card background color
+                    borderRadius: BorderRadius.circular(8), // Rounded corners
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Colors.black12, // Shadow color
+                        blurRadius: 4, // Shadow blur
+                        offset: Offset(0, 2), // Shadow position
+                      ),
+                    ],
+                  ),
+                  child: ListTile(
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 15, vertical: 10), // Padding inside the tile
+                    
+                    // Bus name and type
+                    title: Text(
+                      "${bus["busName"]} (${bus["busType"]})",
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    
+                    // Route and timing information
+                    subtitle: Text(
+                      "${bus["from"]} ➝ ${bus["to"]}\nTime: ${bus["startTime"]} - ${bus["endTime"]}",
+                    ),
+                    
+                    // Price of the bus ticket
+                    trailing: Text(
+                      "Rs ${bus["price"]}",
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, color: Colors.green),
+                    ),
+                  ),
+                );
+              },
+            ),
+    );
+  }
+}
+                
