@@ -158,5 +158,51 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     ),
 
                     const SizedBox(height: 20),
+                    // 🟢 Success or 🔴 Error message
+                    if (successMessage != null)
+                      Text(
+                        successMessage!,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: successMessage!.contains('✅')
+                              ? Colors.green
+                              : Colors.red,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+
+                    const SizedBox(height: 15),
+
+                    // 🔙 Go back to login page
+                    TextButton.icon(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 16,
+                        color: Colors.black54,
+                      ),
+                      label: const Text(
+                        'Back to Login',
+                        style: TextStyle(color: Colors.black54),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    // Clear memory of text controller
+    emailController.dispose();
+    super.dispose();
+  }
+}
                     
 
