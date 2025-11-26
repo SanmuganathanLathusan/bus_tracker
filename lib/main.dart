@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:waygo/user_screen/HomePage.dart';
 import 'package:waygo/user_screen/forgotpassword.dart';
 import 'package:waygo/user_screen/passenger_dashboard.dart';
-import 'package:waygo/user_screen/pages/etickets_page.dart';
 import 'package:waygo/user_screen/pages/live_location_page.dart';
 import 'package:waygo/user_screen/pages/news_page.dart';
 import 'package:waygo/user_screen/pages/schedule_page.dart';
@@ -50,10 +49,10 @@ class MyApp extends StatelessWidget {
         // dashboard routes
         '/news': (context) => const MainNews(),
         '/live_location': (context) => const LiveLocationPage(),
-        '/schedule': (context) => const Schedule(),
+        '/schedule': (context) => const SchedulePage(),
         '/seats': (context) => const SeatReservationHome(),
-        '/prices': (context) => const TicketPrices(),
-        '/eticket': (context) => const Etickets(),
+        '/prices': (context) => const TicketPricesPage(),
+        // '/eticket': (context) => const TicketPrices(),
       },
     );
   }
