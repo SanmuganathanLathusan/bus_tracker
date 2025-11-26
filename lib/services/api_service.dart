@@ -180,4 +180,4 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('isFirstLogin');
   }
-} 
+}
