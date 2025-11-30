@@ -1,56 +1,93 @@
 import 'package:flutter/material.dart';
+import 'package:waygo/services/admin_service.dart';
 
-class TicketPricingWidget extends StatelessWidget {
+class TicketPricingWidget extends StatefulWidget {
   const TicketPricingWidget({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    final routes = [
-      {
-        'route': 'Route 5: Downtown - Airport',
-        'price': '8.50',
-        'capacity': '45',
-        'sold': '234',
-        'income': '1989',
-        'reservation': 'Enabled',
-      },
-      {
-        'route': 'Route 12: City Center - Beach',
-        'price': '6.00',
-        'capacity': '40',
-        'sold': '189',
-        'income': '1134',
-        'reservation': 'Enabled',
-      },
-      {
-        'route': 'Route 8: Mall - University',
-        'price': '5.50',
-        'capacity': '50',
-        'sold': '312',
-        'income': '1716',
-        'reservation': 'Disabled',
-      },
-      {
-        'route': 'Route 3: Station - Hospital',
-        'price': '4.00',
-        'capacity': '38',
-        'sold': '156',
-        'income': '624',
-        'reservation': 'Enabled',
-      },
-    ];
+  State<TicketPricingWidget> createState() => _TicketPricingWidgetState();
+}
 
-    double totalIncome = routes.fold(
-      0,
-      (sum, route) => sum + double.parse(route['income']!),
-    );
-    int totalSold = routes.fold(
-      0,
-      (sum, route) => sum + int.parse(route['sold']!),
-    );
-    double avgPrice =
-        routes.fold(0.0, (sum, route) => sum + double.parse(route['price']!)) /
-        routes.length;
+class _TicketPricingWidgetState extends State<TicketPricingWidget> {
+  final AdminService _adminService = AdminService();
+  bool _isLoading = true;
+  String? _error;
+  List<Map<String, dynamic>> _routes = [];
+  Map<String, dynamic> _stats = {
+    'totalIncome': 0.0,
+    'totalSold': 0,
+    'averagePrice': 0.0,
+    'activeRoutes': 0,
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPricingData();
+  }
+
+  Future<void> _loadPricingData() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final data = await _adminService.getPricingStats();
+      final routes = List<Map<String, dynamic>>.from(data['routes'] ?? []);
+      final stats = Map<String, dynamic>.from(data['stats'] ?? {});
+
+      setState(() {
+        _routes = routes;
+        _stats = {
+          'totalIncome': (stats['totalIncome'] ?? 0).toDouble(),
+          'totalSold': stats['totalSold'] ?? 0,
+          'averagePrice': (stats['averagePrice'] ?? 0).toDouble(),
+          'activeRoutes': stats['activeRoutes'] ?? 0,
+        };
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load pricing data: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('Error: $_error', style: const TextStyle(color: Colors.red)),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadPricingData,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final totalIncome = _stats['totalIncome'] as double;
+    final totalSold = _stats['totalSold'] as int;
+    final avgPrice = _stats['averagePrice'] as double;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
