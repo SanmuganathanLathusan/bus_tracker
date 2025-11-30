@@ -9,6 +9,10 @@ const notificationSchema = new mongoose.Schema({
   isRead: { type: Boolean, default: false },
   icon: { type: String },
   iconColor: { type: String },
+  assignmentId: { type: mongoose.Schema.Types.ObjectId, ref: "Assignment" },
+  reservationId: { type: mongoose.Schema.Types.ObjectId, ref: "Reservation" },
+  routeId: { type: mongoose.Schema.Types.ObjectId, ref: "Route" },
+  metadata: { type: mongoose.Schema.Types.Mixed },
   createdAt: { type: Date, default: Date.now },
 });
 
