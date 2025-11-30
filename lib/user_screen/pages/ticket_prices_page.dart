@@ -1,270 +1,425 @@
-// lib/screens/pages/ticket_prices_page.dart
-
 import 'package:flutter/material.dart';
+import 'package:waygo/services/reservation_service.dart';
+import 'package:waygo/utils/app_colors.dart';
+import 'package:waygo/utils/app_text_styles.dart';
 
-// --- Bus Model (Data Structure) ---
-class Bus {
-  final String busId;
+/// file: lib/user_screen/pages/ticket_prices_page.dart
+/// Display route number, route, and prices by type (normal, semi-luxurious, luxury)
+
+/// -----------------------------
+/// MODELS
+/// -----------------------------
+class RoutePrice {
+  final String routeNumber;
   final String route;
-  final String departureCity;
-  final String arrivalCity;
-  final String departureTime;
-  final String arrivalTime;
-  final int seatsAvailable;
-  final double price;
+  final double? distance;
+  final double normalPrice;
+  final double? semiLuxuriousPrice;
+  final double? luxuryPrice;
 
-  Bus({
-    required this.busId,
+  RoutePrice({
+    required this.routeNumber,
     required this.route,
-    required this.departureCity,
-    required this.arrivalCity,
-    required this.departureTime,
-    required this.arrivalTime,
-    required this.seatsAvailable,
-    required this.price,
+    this.distance,
+    required this.normalPrice,
+    this.semiLuxuriousPrice,
+    this.luxuryPrice,
   });
+
+  factory RoutePrice.fromJson(Map<String, dynamic> json) {
+    final prices = json['prices'] as Map<String, dynamic>? ?? {};
+    return RoutePrice(
+      routeNumber: json['routeNumber']?.toString() ?? 'N/A',
+      route: json['route']?.toString() ?? '',
+      distance: json['distance'] != null
+          ? (json['distance'] as num).toDouble()
+          : null,
+      normalPrice: prices['normal'] != null
+          ? (prices['normal'] as num).toDouble()
+          : 0.0,
+      semiLuxuriousPrice: prices['semiLuxurious'] != null
+          ? (prices['semiLuxurious'] as num).toDouble()
+          : null,
+      luxuryPrice: prices['luxury'] != null
+          ? (prices['luxury'] as num).toDouble()
+          : null,
+    );
+  }
 }
 
-// --- Extended Mock Data (Simulates real bus routes in Sri Lanka) ---
-List<Bus> mockBuses = [
-  Bus(
-    busId: 'BUS-001-SLTB',
-    route: 'Colombo (Pettah) - Jaffna',
-    departureCity: 'Colombo',
-    arrivalCity: 'Jaffna',
-    departureTime: '06:00 AM',
-    arrivalTime: '02:30 PM',
-    seatsAvailable: 15,
-    price: 1850.00,
-  ),
-  Bus(
-    busId: 'EXPRESS-005',
-    route: 'Kottawa - Kandy',
-    departureCity: 'Colombo',
-    arrivalCity: 'Kandy',
-    departureTime: '07:30 AM',
-    arrivalTime: '10:30 AM',
-    seatsAvailable: 8,
-    price: 680.00,
-  ),
-  Bus(
-    busId: 'PUN-210-LUX',
-    route: 'Galle - Anuradhapura',
-    departureCity: 'Galle',
-    arrivalCity: 'Anuradhapura',
-    departureTime: '11:00 AM',
-    arrivalTime: '07:00 PM',
-    seatsAvailable: 22,
-    price: 1550.00,
-  ),
-  Bus(
-    busId: 'GLL-333-Semi',
-    route: 'Matara - Colombo',
-    departureCity: 'Matara',
-    arrivalCity: 'Colombo',
-    departureTime: '04:00 PM',
-    arrivalTime: '07:00 PM',
-    seatsAvailable: 3,
-    price: 750.00,
-  ),
-  Bus(
-    busId: 'BATT-888-NV',
-    route: 'Batticaloa - Colombo',
-    departureCity: 'Batticaloa',
-    arrivalCity: 'Colombo',
-    departureTime: '09:00 PM',
-    arrivalTime: '05:00 AM',
-    seatsAvailable: 28,
-    price: 2100.00,
-  ),
-];
-
-// --- Main Widget with State Management (handles loading data) ---
-class TicketPrices extends StatefulWidget {
-  const TicketPrices({super.key});
+/// -----------------------------
+/// PAGE — TICKET PRICES
+/// -----------------------------
+class TicketPricesPage extends StatefulWidget {
+  const TicketPricesPage({super.key});
 
   @override
-  State<TicketPrices> createState() => _TicketPricesState();
+  State<TicketPricesPage> createState() => _TicketPricesPageState();
 }
 
-class _TicketPricesState extends State<TicketPrices> {
-  List<Bus> _availableBuses = [];
+class _TicketPricesPageState extends State<TicketPricesPage> {
+  final ReservationService _reservationService = ReservationService();
+  List<RoutePrice> _routes = [];
   bool _isLoading = true;
+  String? _error;
+  String _searchQuery = '';
+  String _sortBy = 'route'; // 'route', 'normal', 'semi', 'luxury'
+  bool _sortAscending = true;
 
   @override
   void initState() {
     super.initState();
-    _fetchBusData();
+    _loadRoutePrices();
   }
-  // Function to simulate API data fetching
-  Future<void> _fetchBusData() async {
+
+  Future<void> _loadRoutePrices() async {
     setState(() {
       _isLoading = true;
+      _error = null;
     });
 
-    // Simulate network delay for a realistic user experience
-    await Future.delayed(const Duration(seconds: 1)); 
+    try {
+      final data = await _reservationService.getRoutePricesByType();
+      setState(() {
+        _routes = data.map((json) => RoutePrice.fromJson(json)).toList();
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading prices: ${e.toString()}')),
+        );
+      }
+    }
+  }
 
+  List<RoutePrice> get _filteredRoutes {
+    var filtered = List<RoutePrice>.from(_routes);
+
+    // Apply search filter
+    if (_searchQuery.isNotEmpty) {
+      final query = _searchQuery.toLowerCase();
+      filtered = filtered.where((route) {
+        return route.route.toLowerCase().contains(query) ||
+            route.routeNumber.toLowerCase().contains(query);
+      }).toList();
+    }
+
+    // Apply sorting
+    filtered.sort((a, b) {
+      int comparison = 0;
+      switch (_sortBy) {
+        case 'route':
+          comparison = a.route.compareTo(b.route);
+          break;
+        case 'normal':
+          comparison = a.normalPrice.compareTo(b.normalPrice);
+          break;
+        case 'semi':
+          comparison = (a.semiLuxuriousPrice ?? 0.0).compareTo(
+            b.semiLuxuriousPrice ?? 0.0,
+          );
+          break;
+        case 'luxury':
+          comparison = (a.luxuryPrice ?? 0.0).compareTo(b.luxuryPrice ?? 0.0);
+          break;
+      }
+      return _sortAscending ? comparison : -comparison;
+    });
+
+    return filtered;
+  }
+
+  void _sort(String column) {
     setState(() {
-      _availableBuses = mockBuses; 
-      _isLoading = false;
+      if (_sortBy == column) {
+        _sortAscending = !_sortAscending;
+      } else {
+        _sortBy = column;
+        _sortAscending = true;
+      }
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    const primaryColor = Color(0xFF0C3866); // Dark Blue
-    const accentColor = Color(0xFFFFA000); // Orange
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Available Buses & Prices'),
-        backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
-      ),
-      // Display a loading indicator while data is being fetched
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: primaryColor))
-          : ListView.builder(
-              padding: const EdgeInsets.all(12),
-              itemCount: _availableBuses.length,
-              itemBuilder: (context, index) {
-                final bus = _availableBuses[index];
-                return _buildBusCard(bus, primaryColor, accentColor, context);
-              },
+      body: Container(
+        decoration: BoxDecoration(
+          image: DecorationImage(
+            image: NetworkImage(
+              'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=1200&q=80',
             ),
-    );
-  }
-
-  // Helper method to build the aesthetically improved Bus Card
-  Widget _buildBusCard(Bus bus, Color primaryColor, Color accentColor, BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade300, width: 1),
-      ),
-      elevation: 4,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Route Title & Price Row
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    bus.route,
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                      color: primaryColor,
+            fit: BoxFit.cover,
+            colorFilter: ColorFilter.mode(
+              Colors.black.withOpacity(0.3),
+              BlendMode.darken,
+            ),
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Header
+              Container(
+                margin: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.95),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  ],
                 ),
-                Text(
-                  'Rs. ${bus.price.toStringAsFixed(2)}',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: accentColor,
-                  ),
-                ),
-              ],
-            ),
-            const Divider(height: 16),
-            // Departure/Arrival Times
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildTimeInfo(
-                  icon: Icons.access_time,
-                  label: 'Departure',
-                  time: bus.departureTime,
-                ),
-                const Icon(Icons.arrow_right_alt, color: Colors.grey),
-                _buildTimeInfo(
-                  icon: Icons.timer_off,
-                  label: 'Arrival',
-                  time: bus.arrivalTime,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            // Bus ID and Seats Available
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('ID: ${bus.busId}', style: TextStyle(color: Colors.grey.shade600)),
-                Row(
+                child: Row(
                   children: [
-                    Icon(Icons.event_seat, size: 16, color: bus.seatsAvailable > 5 ? Colors.green : accentColor),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${bus.seatsAvailable} Seats Left',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: bus.seatsAvailable > 5 ? Colors.green.shade700 : accentColor,
+                    GestureDetector(
+                      onTap: () => Navigator.maybePop(context),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.waygoDarkBlue.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.arrow_back_ios_new,
+                          size: 20,
+                          color: AppColors.waygoDarkBlue,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Ticket Prices',
+                            style: AppTextStyles.heading.copyWith(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                              color: AppColors.waygoDarkBlue,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'View prices by route and bus type',
+                            style: AppTextStyles.body.copyWith(
+                              fontSize: 13,
+                              color: Colors.black54,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: _loadRoutePrices,
+                      icon: const Icon(
+                        Icons.refresh,
+                        color: AppColors.waygoDarkBlue,
                       ),
                     ),
                   ],
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
+              ),
 
-            // Buy Ticket Button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  // Navigate to Ticket Purchase Page
-                  Navigator.pushNamed(
-                    context, 
-                    '/eticket',
-                    arguments: {'busId': bus.busId},
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: accentColor,
-                  foregroundColor: primaryColor,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+              // Search bar
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                child: TextField(
+                  onChanged: (value) {
+                    setState(() {
+                      _searchQuery = value;
+                    });
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Search routes...',
+                    prefixIcon: const Icon(Icons.search),
+                    filled: true,
+                    fillColor: Colors.white.withOpacity(0.95),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
                   ),
                 ),
-                child: const Text(
-                  'Buy Ticket',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
               ),
-            ),
-          ],
+
+              // Table
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _error != null
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text('Error: $_error'),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: _loadRoutePrices,
+                              child: const Text('Retry'),
+                            ),
+                          ],
+                        ),
+                      )
+                    : _filteredRoutes.isEmpty
+                    ? Center(
+                        child: Text(
+                          _searchQuery.isEmpty
+                              ? 'No routes found'
+                              : 'No routes match your search',
+                          style: AppTextStyles.body.copyWith(
+                            color: Colors.black54,
+                          ),
+                        ),
+                      )
+                    : SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        child: Card(
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: DataTable(
+                              columnSpacing: 16,
+                              horizontalMargin: 12,
+                              headingRowColor: MaterialStateProperty.all(
+                                AppColors.waygoDarkBlue.withOpacity(0.1),
+                              ),
+                              columns: [
+                                _buildSortableColumn('Route #', 'routeNumber'),
+                                _buildSortableColumn('Route', 'route'),
+                                _buildSortableColumn('Normal', 'normal'),
+                                _buildSortableColumn('Semi-Lux', 'semi'),
+                                _buildSortableColumn('Luxury', 'luxury'),
+                              ],
+                              rows: _filteredRoutes.map((route) {
+                                return DataRow(
+                                  cells: [
+                                    DataCell(
+                                      Text(
+                                        route.routeNumber,
+                                        style: AppTextStyles.body.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
+                                    DataCell(
+                                      SizedBox(
+                                        width: 120,
+                                        child: Text(
+                                          route.route,
+                                          style: AppTextStyles.body.copyWith(
+                                            fontSize: 13,
+                                          ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ),
+                                    DataCell(
+                                      Text(
+                                        'Rs ${route.normalPrice.toStringAsFixed(0)}',
+                                        style: AppTextStyles.body.copyWith(
+                                          color: AppColors.waygoDarkBlue,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
+                                    DataCell(
+                                      Text(
+                                        route.semiLuxuriousPrice != null
+                                            ? 'Rs ${route.semiLuxuriousPrice!.toStringAsFixed(0)}'
+                                            : 'N/A',
+                                        style: AppTextStyles.body.copyWith(
+                                          color:
+                                              route.semiLuxuriousPrice != null
+                                              ? Colors.orange.shade700
+                                              : Colors.grey,
+                                          fontWeight:
+                                              route.semiLuxuriousPrice != null
+                                              ? FontWeight.w600
+                                              : FontWeight.normal,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
+                                    DataCell(
+                                      Text(
+                                        route.luxuryPrice != null
+                                            ? 'Rs ${route.luxuryPrice!.toStringAsFixed(0)}'
+                                            : 'N/A',
+                                        style: AppTextStyles.body.copyWith(
+                                          color: route.luxuryPrice != null
+                                              ? Colors.purple.shade700
+                                              : Colors.grey,
+                                          fontWeight: route.luxuryPrice != null
+                                              ? FontWeight.w600
+                                              : FontWeight.normal,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                        ),
+                      ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // Small helper widget for displaying time information
-  Widget _buildTimeInfo({required IconData icon, required String label, required String time}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(icon, size: 16, color: Colors.grey),
-            const SizedBox(width: 4),
-            Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(time, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-      ],
+  DataColumn _buildSortableColumn(String label, String sortKey) {
+    final isSorted = _sortBy == sortKey;
+    return DataColumn(
+      label: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: Text(
+              label,
+              style: AppTextStyles.body.copyWith(
+                fontWeight: FontWeight.bold,
+                color: AppColors.waygoDarkBlue,
+                fontSize: 12,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (isSorted)
+            Icon(
+              _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
+              size: 14,
+              color: AppColors.waygoDarkBlue,
+            ),
+        ],
+      ),
+      onSort: (columnIndex, ascending) => _sort(sortKey),
     );
   }
-
+}
