@@ -3,6 +3,8 @@ const Route = require("../models/Route");
 const Payment = require("../models/Payment");
 const Bus = require("../models/Bus");
 const Notification = require("../models/Notification");
+const Assignment = require("../models/Assignment");
+const { notifyDriverNewBooking } = require("../utils/notificationService");
 const QRCode = require("qrcode");
 const PDFDocument = require("pdfkit");
 const crypto = require("crypto");
@@ -116,13 +118,31 @@ exports.confirmReservation = async (req, res) => {
     // Populate route and bus to get driver info
     await reservation.populate([
       { path: "routeId", select: "start destination departure arrival busName" },
-      { path: "busId", select: "busNumber busName driverId" }
+      { path: "busId", select: "busNumber busName driverId" },
+      { path: "userId", select: "userName email phone" }
     ]);
 
-    // Get driver from bus
+    // Get driver from bus (legacy approach)
     let driverId = null;
     if (reservation.busId && reservation.busId.driverId) {
       driverId = reservation.busId.driverId;
+    }
+
+    // Find accepted assignment for this route and date (preferred approach)
+    let assignment = null;
+    const dayStart = new Date(reservation.date);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(dayStart);
+    dayEnd.setDate(dayEnd.getDate() + 1);
+
+    assignment = await Assignment.findOne({
+      routeId: reservation.routeId._id,
+      scheduledDate: { $gte: dayStart, $lt: dayEnd },
+      status: "accepted",
+    }).populate("driverId", "userName email");
+
+    if (assignment && assignment.driverId) {
+      driverId = assignment.driverId._id;
     }
 
     // Send notification to passenger
@@ -144,24 +164,12 @@ exports.confirmReservation = async (req, res) => {
     // Send notification to driver if driver exists
     if (driverId) {
       try {
-        const route = reservation.routeId;
-        const formattedDate = new Date(reservation.date).toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric'
-        });
-        await Notification.create({
-          userId: driverId,
-          userType: "driver",
-          type: "Info",
-          title: "New Booking",
-          message: `New passenger booked seats ${reservation.seats.join(", ")} for ${route?.start || 'N/A'} to ${route?.destination || 'N/A'} on ${formattedDate}`,
-          icon: "person_add",
-          iconColor: "#2196F3",
-          isRead: false,
+        // Use enhanced notification service for push notifications
+        notifyDriverNewBooking(driverId, reservation, assignment).catch(err => {
+          console.error("Failed to send push notification to driver:", err);
         });
       } catch (notifError) {
-        console.error("Failed to create driver notification:", notifError);
+        console.error("Failed to notify driver:", notifError);
       }
     }
 

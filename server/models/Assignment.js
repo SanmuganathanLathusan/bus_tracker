@@ -17,6 +17,7 @@ const assignmentSchema = new mongoose.Schema({
   assignedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   driverResponse: { type: String },
   notes: { type: String },
+  acceptedAt: { type: Date },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });

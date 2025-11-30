@@ -1,56 +1,93 @@
 import 'package:flutter/material.dart';
+import 'package:waygo/services/admin_service.dart';
 
-class TicketPricingWidget extends StatelessWidget {
+class TicketPricingWidget extends StatefulWidget {
   const TicketPricingWidget({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    final routes = [
-      {
-        'route': 'Route 5: Downtown - Airport',
-        'price': '8.50',
-        'capacity': '45',
-        'sold': '234',
-        'income': '1989',
-        'reservation': 'Enabled',
-      },
-      {
-        'route': 'Route 12: City Center - Beach',
-        'price': '6.00',
-        'capacity': '40',
-        'sold': '189',
-        'income': '1134',
-        'reservation': 'Enabled',
-      },
-      {
-        'route': 'Route 8: Mall - University',
-        'price': '5.50',
-        'capacity': '50',
-        'sold': '312',
-        'income': '1716',
-        'reservation': 'Disabled',
-      },
-      {
-        'route': 'Route 3: Station - Hospital',
-        'price': '4.00',
-        'capacity': '38',
-        'sold': '156',
-        'income': '624',
-        'reservation': 'Enabled',
-      },
-    ];
+  State<TicketPricingWidget> createState() => _TicketPricingWidgetState();
+}
 
-    double totalIncome = routes.fold(
-      0,
-      (sum, route) => sum + double.parse(route['income']!),
-    );
-    int totalSold = routes.fold(
-      0,
-      (sum, route) => sum + int.parse(route['sold']!),
-    );
-    double avgPrice =
-        routes.fold(0.0, (sum, route) => sum + double.parse(route['price']!)) /
-        routes.length;
+class _TicketPricingWidgetState extends State<TicketPricingWidget> {
+  final AdminService _adminService = AdminService();
+  bool _isLoading = true;
+  String? _error;
+  List<Map<String, dynamic>> _routes = [];
+  Map<String, dynamic> _stats = {
+    'totalIncome': 0.0,
+    'totalSold': 0,
+    'averagePrice': 0.0,
+    'activeRoutes': 0,
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPricingData();
+  }
+
+  Future<void> _loadPricingData() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final data = await _adminService.getPricingStats();
+      final routes = List<Map<String, dynamic>>.from(data['routes'] ?? []);
+      final stats = Map<String, dynamic>.from(data['stats'] ?? {});
+
+      setState(() {
+        _routes = routes;
+        _stats = {
+          'totalIncome': (stats['totalIncome'] ?? 0).toDouble(),
+          'totalSold': stats['totalSold'] ?? 0,
+          'averagePrice': (stats['averagePrice'] ?? 0).toDouble(),
+          'activeRoutes': stats['activeRoutes'] ?? 0,
+        };
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load pricing data: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('Error: $_error', style: const TextStyle(color: Colors.red)),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadPricingData,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final totalIncome = _stats['totalIncome'] as double;
+    final totalSold = _stats['totalSold'] as int;
+    final avgPrice = _stats['averagePrice'] as double;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -68,9 +105,9 @@ class TicketPricingWidget extends StatelessWidget {
                 ),
               ),
               ElevatedButton.icon(
-                onPressed: () {},
-                icon: const Icon(Icons.add),
-                label: const Text('Add Route'),
+                onPressed: _loadPricingData,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Refresh'),
               ),
             ],
           ),
@@ -90,7 +127,7 @@ class TicketPricingWidget extends StatelessWidget {
                 children: [
                   _buildSummaryCard(
                     'Total Income',
-                    '\$${totalIncome.toStringAsFixed(2)}',
+                    'Rs ${totalIncome.toStringAsFixed(2)}',
                     Icons.attach_money,
                     Colors.green,
                   ),
@@ -102,13 +139,13 @@ class TicketPricingWidget extends StatelessWidget {
                   ),
                   _buildSummaryCard(
                     'Average Price',
-                    '\$${avgPrice.toStringAsFixed(2)}',
+                    'Rs ${avgPrice.toStringAsFixed(2)}',
                     Icons.price_change,
                     Colors.purple,
                   ),
                   _buildSummaryCard(
                     'Active Routes',
-                    '${routes.length}',
+                    '${_stats['activeRoutes']}',
                     Icons.route,
                     Colors.orange,
                   ),
@@ -119,9 +156,16 @@ class TicketPricingWidget extends StatelessWidget {
           const SizedBox(height: 24),
 
           // Route Cards
-          Column(
-            children: routes.map((route) => _buildRouteCard(route)).toList(),
-          ),
+          _routes.isEmpty
+              ? const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(32.0),
+                    child: Text('No routes found'),
+                  ),
+                )
+              : Column(
+                  children: _routes.map((route) => _buildRouteCard(route)).toList(),
+                ),
         ],
       ),
     );
@@ -174,8 +218,13 @@ class TicketPricingWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildRouteCard(Map<String, String> route) {
+  Widget _buildRouteCard(Map<String, dynamic> route) {
     bool reservationEnabled = route['reservation'] == 'Enabled';
+    final routeName = route['route'] ?? '${route['start']} - ${route['destination']}';
+    final price = route['price']?.toString() ?? '0.0';
+    final capacity = route['capacity']?.toString() ?? '0';
+    final sold = route['sold']?.toString() ?? '0';
+    final income = route['income']?.toStringAsFixed(2) ?? '0.00';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -196,7 +245,7 @@ class TicketPricingWidget extends StatelessWidget {
             child: Row(
               children: [
                 Text(
-                  route['route']!,
+                  routeName,
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -213,7 +262,7 @@ class TicketPricingWidget extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    '\$${route['price']}',
+                    'Rs $price',
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -241,7 +290,7 @@ class TicketPricingWidget extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        '${route['income']}',
+                        'Rs $income',
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
@@ -264,7 +313,7 @@ class TicketPricingWidget extends StatelessWidget {
                 Icon(Icons.people, size: 16, color: Colors.grey.shade600),
                 const SizedBox(width: 4),
                 Text(
-                  'Capacity: ${route['capacity']}',
+                  'Capacity: $capacity',
                   style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                 ),
                 const SizedBox(width: 20),
@@ -275,7 +324,7 @@ class TicketPricingWidget extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  'Sold: ${route['sold']}',
+                  'Sold: $sold',
                   style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                 ),
                 const SizedBox(width: 20),
@@ -286,7 +335,7 @@ class TicketPricingWidget extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  'Reservation ${route['reservation']}',
+                  'Reservation ${route['reservation'] ?? 'Enabled'}',
                   style: TextStyle(
                     color: reservationEnabled ? Colors.green : Colors.red,
                     fontSize: 13,

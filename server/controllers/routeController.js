@@ -20,7 +20,7 @@ exports.searchRoutes = async (req, res) => {
       destination: new RegExp(destination, "i"),
       isActive: true,
     })
-    .populate("busId", "busNumber busName totalSeats")
+    .populate("busId", "busNumber busName totalSeats busType")
     .select("-__v");
 
     // Get booked seats for the date
@@ -40,10 +40,35 @@ exports.searchRoutes = async (req, res) => {
         bookedSeats.push(...res.seats);
       });
 
+      const routeObj = route.toObject();
+      const busData = routeObj.busId || {};
+      
+      // Determine price based on bus type
+      let routePrice = routeObj.price;
+      if (busData.busType === "deluxe" && routeObj.priceDeluxe) {
+        routePrice = routeObj.priceDeluxe;
+      } else if (busData.busType === "luxury" && routeObj.priceLuxury) {
+        routePrice = routeObj.priceLuxury;
+      }
+
       return {
-        ...route.toObject(),
+        ...routeObj,
+        routeNumber: routeObj.routeNumber || `R${route._id.toString().substring(0, 6)}`,
+        distance: routeObj.distance || null,
         bookedSeats: [...new Set(bookedSeats)],
-        availableSeats: route.totalSeats - bookedSeats.length,
+        availableSeats: (routeObj.totalSeats || busData.totalSeats || 40) - bookedSeats.length,
+        // Ensure consistent field names
+        start: routeObj.start,
+        destination: routeObj.destination,
+        departure: routeObj.departure,
+        arrival: routeObj.arrival,
+        price: routePrice,
+        priceDeluxe: routeObj.priceDeluxe,
+        priceLuxury: routeObj.priceLuxury,
+        busNumber: busData.busNumber || '',
+        busName: routeObj.busName || busData.busName || '',
+        busType: busData.busType || 'standard',
+        totalSeats: routeObj.totalSeats || busData.totalSeats || 40,
       };
     });
 
@@ -58,11 +83,34 @@ exports.searchRoutes = async (req, res) => {
 exports.getAllRoutes = async (req, res) => {
   try {
     const routes = await Route.find({ isActive: true })
-      .populate("busId", "busNumber busName")
+      .populate("busId", "busNumber busName busType totalSeats")
       .sort({ createdAt: -1 })
       .select("-__v");
 
-    res.json(routes);
+    // Normalize routes to ensure consistent field names
+    const normalizedRoutes = routes.map(route => {
+      const routeObj = route.toObject();
+      const busData = routeObj.busId || {};
+      
+      return {
+        ...routeObj,
+        routeNumber: routeObj.routeNumber || `R${route._id.toString().substring(0, 6)}`,
+        start: routeObj.start,
+        destination: routeObj.destination,
+        departure: routeObj.departure,
+        arrival: routeObj.arrival,
+        price: routeObj.price,
+        priceDeluxe: routeObj.priceDeluxe,
+        priceLuxury: routeObj.priceLuxury,
+        distance: routeObj.distance || null,
+        busNumber: busData.busNumber || '',
+        busName: routeObj.busName || busData.busName || '',
+        busType: busData.busType || 'standard',
+        totalSeats: routeObj.totalSeats || busData.totalSeats || 40,
+      };
+    });
+
+    res.json(normalizedRoutes);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch routes" });
   }
@@ -142,6 +190,47 @@ exports.deleteRoute = async (req, res) => {
     res.json({ message: "Route deleted successfully" });
   } catch (error) {
     res.status(500).json({ error: "Failed to delete route" });
+  }
+};
+
+// GET ROUTE PRICES BY TYPE (for ticket prices page)
+exports.getRoutePricesByType = async (req, res) => {
+  try {
+    const routes = await Route.find({ isActive: true })
+      .populate("busId", "busType")
+      .select("routeNumber start destination price priceDeluxe priceLuxury distance")
+      .sort({ start: 1, destination: 1 });
+
+    // Group routes by route identifier (start-destination)
+    const routeGroups = {};
+    routes.forEach(route => {
+      const key = `${route.start}-${route.destination}`;
+      if (!routeGroups[key]) {
+        routeGroups[key] = {
+          routeNumber: route.routeNumber || `R${route._id.toString().substring(0, 6)}`,
+          route: `${route.start} - ${route.destination}`,
+          distance: route.distance || null,
+          prices: {
+            normal: route.price || 0,
+            semiLuxurious: route.priceDeluxe || null,
+            luxury: route.priceLuxury || null,
+          }
+        };
+      } else {
+        // Update prices if different bus types have different prices
+        if (route.priceDeluxe && (!routeGroups[key].prices.semiLuxurious || route.priceDeluxe > routeGroups[key].prices.semiLuxurious)) {
+          routeGroups[key].prices.semiLuxurious = route.priceDeluxe;
+        }
+        if (route.priceLuxury && (!routeGroups[key].prices.luxury || route.priceLuxury > routeGroups[key].prices.luxury)) {
+          routeGroups[key].prices.luxury = route.priceLuxury;
+        }
+      }
+    });
+
+    res.json(Object.values(routeGroups));
+  } catch (error) {
+    console.error("Get route prices error:", error);
+    res.status(500).json({ error: "Failed to fetch route prices" });
   }
 };
 

@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 
@@ -10,64 +9,55 @@ class ForgotPasswordPage extends StatefulWidget {
 }
 
 class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
-  // Controller to handle email text input
-  final TextEditingController emailController = TextEditingController();
-
-  // AuthService API instance
+  final emailController = TextEditingController();
   final AuthService _authService = AuthService();
-
-  // UI state variables
   bool isLoading = false;
   String? successMessage;
 
-  // Function to send reset email (Backend call)
   Future<void> sendResetEmail() async {
-    final email = emailController.text.trim(); // Clean whitespace
-
-    // If no email entered → show warning
-    if (email.isEmpty) {
+    if (emailController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter your email address')),
       );
       return;
     }
 
-    // Start loading & clear previous message
     setState(() {
       isLoading = true;
       successMessage = null;
     });
 
-    // API call to backend
-    final result = await _authService.forgotPassword(email: email);
+    final result = await _authService.forgotPassword(
+      email: emailController.text.trim(),
+    );
 
-    // Extract message from response
-    final message = result['data']['message'] ?? 'Failed to send reset link';
-
-    // Stop loading indicator
     setState(() => isLoading = false);
 
-    // Check success conditions (statusCode OR response text)
-    final isSuccess = result['statusCode'] == 200 ||
-        message.toLowerCase().contains('success') ||
-        message.toLowerCase().contains('sent');
+    final message = result['data']['message'] ?? 'Failed to send reset link';
 
-    // Update visible message
-    setState(() {
-      successMessage = isSuccess
-          ? "✅ Reset link sent! Please check your email inbox (and spam folder)."
-          : "❌ Failed to send reset link. Try again.";
-    });
-    // Show snackbar regardless of success/failure
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    // Show snackbar
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+
+    // If successful, show visible message
+    if (result['statusCode'] == 200 ||
+        message.toLowerCase().contains('success') ||
+        message.toLowerCase().contains('sent')) {
+      setState(() {
+        successMessage =
+            "✅ Reset link sent! Please check your email inbox (and spam folder).";
+      });
+    } else {
+      setState(() {
+        successMessage = "❌ Failed to send reset link. Try again.";
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Gradient background
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -77,7 +67,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           ),
         ),
         child: Center(
-          // Scroll to avoid overflow on small screens
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(25),
             child: Card(
@@ -86,19 +75,19 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 40),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 25,
+                  vertical: 40,
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Top Icon
                     const Icon(
                       Icons.directions_bus_rounded,
                       size: 80,
                       color: Color(0xFF1E88E5),
                     ),
                     const SizedBox(height: 10),
-
-                    // Title
                     const Text(
                       'Forgot Password?',
                       style: TextStyle(
@@ -108,8 +97,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                       ),
                     ),
                     const SizedBox(height: 8),
-
-                    // Subtitle
                     const Text(
                       'Enter your email to receive a password reset link',
                       textAlign: TextAlign.center,
@@ -117,7 +104,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     ),
                     const SizedBox(height: 30),
 
-                    // 📧 Email input field
+                    // Email TextField
                     TextField(
                       controller: emailController,
                       keyboardType: TextInputType.emailAddress,
@@ -129,14 +116,14 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                         ),
                       ),
                     ),
+
                     const SizedBox(height: 25),
 
-                    // 🚀 Send button
+                    // Button
                     SizedBox(
                       width: double.infinity,
                       height: 50,
                       child: ElevatedButton(
-                        // Disable button while loading
                         onPressed: isLoading ? null : sendResetEmail,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF1E88E5),
@@ -145,7 +132,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                           ),
                         ),
                         child: isLoading
-                            ? const CircularProgressIndicator(color: Colors.white)
+                            ? const CircularProgressIndicator(
+                                color: Colors.white,
+                              )
                             : const Text(
                                 'Send Reset Link',
                                 style: TextStyle(
@@ -158,7 +147,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     ),
 
                     const SizedBox(height: 20),
-                    // 🟢 Success or 🔴 Error message
+
+                    // ✅ Visible Success / Error Message
                     if (successMessage != null)
                       Text(
                         successMessage!,
@@ -174,13 +164,13 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
                     const SizedBox(height: 15),
 
-                    // 🔙 Go back to login page
+                    // Back to Login
                     TextButton.icon(
                       onPressed: () => Navigator.pop(context),
                       icon: const Icon(
                         Icons.arrow_back_ios_new_rounded,
-                        size: 16,
                         color: Colors.black54,
+                        size: 16,
                       ),
                       label: const Text(
                         'Back to Login',
@@ -199,10 +189,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
   @override
   void dispose() {
-    // Clear memory of text controller
     emailController.dispose();
     super.dispose();
   }
 }
-                    
-

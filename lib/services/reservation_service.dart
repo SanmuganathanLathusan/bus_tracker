@@ -304,4 +304,36 @@ class ReservationService {
       rethrow;
     }
   }
+
+  // Get route prices by type (for ticket prices page)
+  Future<List<Map<String, dynamic>>> getRoutePricesByType() async {
+    try {
+      print('🔵 Fetching route prices by type');
+      final uri = Uri.parse("$baseUrl/routes/prices");
+
+      final response = await http.get(uri, headers: _defaultHeaders()).timeout(_timeout);
+      final data = _handleResponse(response);
+      if (data is List) return List<Map<String, dynamic>>.from(data);
+      return [];
+    } catch (e) {
+      print('❌ Get route prices error: $e');
+      rethrow;
+    }
+  }
+
+  // Get all routes with full details (for schedule page)
+  Future<List<Map<String, dynamic>>> getAllRoutesWithDetails() async {
+    try {
+      print('🔵 Fetching all routes with details');
+      final uri = Uri.parse("$baseUrl/routes");
+
+      final response = await http.get(uri, headers: _defaultHeaders()).timeout(_timeout);
+      final data = _handleResponse(response);
+      if (data is List) return List<Map<String, dynamic>>.from(data);
+      return [];
+    } catch (e) {
+      print('❌ Get all routes error: $e');
+      rethrow;
+    }
+  }
 }

@@ -3,6 +3,7 @@ const Assignment = require("../models/Assignment");
 const Bus = require("../models/Bus");
 const Reservation = require("../models/Reservation");
 const Rating = require("../models/Rating");
+const Notification = require("../models/Notification");
 const {
   markDriverAssigned,
   releaseDriverIfIdle,
@@ -222,6 +223,11 @@ exports.respondToAssignment = async (req, res) => {
     assignment.status = status;
     assignment.driverResponse = response;
     assignment.updatedAt = new Date();
+    
+    if (status === "accepted") {
+      assignment.acceptedAt = new Date();
+    }
+    
     await assignment.save();
 
     if (status === "rejected") {
@@ -229,11 +235,26 @@ exports.respondToAssignment = async (req, res) => {
       if (assignment.busId) {
         await releaseBusIfIdle(assignment.busId, assignment._id);
       }
+      
+      // Mark assignment notification as read
+      await Notification.updateMany(
+        { userId: driverId, assignmentId: assignment._id },
+        { isRead: true }
+      );
     } else if (status === "accepted") {
       await markDriverAssigned(driverId, assignment._id);
       if (assignment.busId) {
         await markBusAssigned(assignment.busId, assignment._id, assignment.scheduledDate);
       }
+      
+      // Mark assignment notification as read
+      await Notification.updateMany(
+        { userId: driverId, assignmentId: assignment._id },
+        { isRead: true }
+      );
+      
+      // Note: Passenger booking notifications will be sent when reservations are made
+      // The driver is now subscribed to receive notifications for this assignment
     }
 
     res.json({

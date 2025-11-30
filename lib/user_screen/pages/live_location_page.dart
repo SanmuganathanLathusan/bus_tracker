@@ -293,7 +293,7 @@ class _LiveLocationPageState extends State<LiveLocationPage>
   }
 
   static const double _cheapUserThresholdDeg = 0.00045; // ~50m
-  static const double _cheapBusThresholdDeg = 0.001; // ~111m
+  // ~111m
 
   void _updateUserPosition(LatLng newPos, {bool immediate = false}) async {
     _currentPosition = newPos;

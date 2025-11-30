@@ -1,19 +1,20 @@
-// lib/user_screen/pages/schedule_page.dart
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:waygo/services/reservation_service.dart';
 import 'package:waygo/utils/app_colors.dart';
 import 'package:waygo/utils/app_text_styles.dart';
+import 'eticket_price_selection_page.dart';
 
-class SchedulePage extends StatefulWidget {
-  const SchedulePage({super.key});
+/// E-Ticket Booking Page
+/// Similar to schedule_page.dart - allows searching routes and booking tickets
+class EticketBookingPage extends StatefulWidget {
+  const EticketBookingPage({super.key});
 
   @override
-  State<SchedulePage> createState() => _SchedulePageState();
+  State<EticketBookingPage> createState() => _EticketBookingPageState();
 }
 
-class _SchedulePageState extends State<SchedulePage> {
+class _EticketBookingPageState extends State<EticketBookingPage> {
   final List<String> _cities = [
     'Colombo',
     'Kandy',
@@ -48,7 +49,7 @@ class _SchedulePageState extends State<SchedulePage> {
         return Theme(
           data: ThemeData.light().copyWith(
             colorScheme: ColorScheme.light(
-              primary: AppColors.accentPrimary,
+              primary: AppColors.waygoDarkBlue,
               onPrimary: Colors.white,
               surface: AppColors.backgroundSecondary,
               onSurface: AppColors.textDark,
@@ -88,7 +89,11 @@ class _SchedulePageState extends State<SchedulePage> {
     });
 
     try {
-      final results = await _reservation_service_safeCall();
+      final results = await _reservationService.searchRoutes(
+        start: _from,
+        destination: _to,
+        date: _dateForApi,
+      );
       final List<Map<String, dynamic>> normalized = (results ?? [])
           .map<Map<String, dynamic>>((r) => Map<String, dynamic>.from(r as Map))
           .toList();
@@ -108,14 +113,6 @@ class _SchedulePageState extends State<SchedulePage> {
         );
       }
     }
-  }
-
-  Future<List?> _reservation_service_safeCall() async {
-    return await _reservationService.searchRoutes(
-      start: _from,
-      destination: _to,
-      date: _dateForApi,
-    );
   }
 
   void _swapLocations() {
@@ -227,9 +224,7 @@ class _SchedulePageState extends State<SchedulePage> {
                               'Travel Date',
                               style: AppTextStyles.body.copyWith(
                                 fontSize: 11,
-                                color: AppColors.waygoLightBlue.withOpacity(
-                                  0.8,
-                                ),
+                                color: AppColors.waygoLightBlue.withOpacity(0.8),
                               ),
                             ),
                             const SizedBox(height: 2),
@@ -276,10 +271,10 @@ class _SchedulePageState extends State<SchedulePage> {
                       )
                     : Row(
                         mainAxisSize: MainAxisSize.min,
-                        children: const [
-                          Icon(Icons.search, size: 20),
-                          SizedBox(width: 8),
-                          Text(
+                        children: [
+                          const Icon(Icons.search, size: 20),
+                          const SizedBox(width: 8),
+                          const Text(
                             'Search',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
@@ -367,48 +362,34 @@ class _SchedulePageState extends State<SchedulePage> {
   }
 
   Widget _buildScheduleCard(Map<String, dynamic> r, int index) {
-    // Use consistent field names from Route model
-    final routeId = r['_id']?.toString() ?? 'N/A';
-    final start = r['start'] ?? '';
-    final destination = r['destination'] ?? '';
+    final routeData = r['routeId'] is Map
+        ? r['routeId'] as Map<String, dynamic>
+        : r;
+    final busData = r['busId'] is Map
+        ? r['busId'] as Map<String, dynamic>
+        : (r['bus'] is Map ? r['bus'] as Map<String, dynamic> : {});
+
+    // Route ID
+    final routeId = r['_id']?.toString() ?? routeData['_id']?.toString() ?? 'N/A';
+    
+    // Route information
+    final start = routeData['start'] ?? r['start'] ?? '';
+    final destination = routeData['destination'] ?? r['destination'] ?? '';
     final routeName = '$start - $destination';
-
+    
     // Times
-    final departure = r['departure'] ?? '';
-    final arrival = r['arrival'] ?? '';
-    final duration = r['duration'] ?? '';
-
+    final departure = routeData['departure'] ?? r['departure'] ?? r['startTime'] ?? '';
+    final arrival = routeData['arrival'] ?? r['arrival'] ?? r['endTime'] ?? '';
+    final duration = routeData['duration'] ?? r['duration'] ?? '';
+    
     // Distance/Kilometers
-    final distance = r['distance'];
-    final distanceStr = distance != null ? '${distance.toString()} km' : '';
+    final distance = routeData['distance'] ?? r['distance'];
+    final distanceStr = distance != null 
+        ? '${distance.toString()} km'
+        : '';
 
-    // Bus information
-    final busName = r['busName'] ?? 'Standard Service';
-    final regNumber = r['busNumber'] ?? '';
-    final totalSeats = r['totalSeats'] ?? 40;
-    final availableSeats = r['availableSeats'] ?? totalSeats;
-
-    // Route number
-    final routeNumber = r['routeNumber'] ?? '';
-
-    // Stops (optional)
-    final rawStops = r['stops'];
-    final List<String> stops = rawStops is List
-        ? rawStops
-              .map<String>((s) {
-                if (s is Map) {
-                  return (s['name'] ??
-                          s['stopName'] ??
-                          s['city'] ??
-                          s['label'] ??
-                          '')
-                      .toString();
-                }
-                return s.toString();
-              })
-              .where((s) => s.trim().isNotEmpty)
-              .toList()
-        : <String>[];
+    final routeNumber = routeData['routeNumber']?.toString() ?? r['routeNumber']?.toString() ?? '';
+    final busName = busData['busName'] ?? routeData['busName'] ?? r['busName'] ?? 'Standard Service';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -429,11 +410,32 @@ class _SchedulePageState extends State<SchedulePage> {
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: () {
-            // Navigate to booking or show more details
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Selected: $busName'),
-                behavior: SnackBarBehavior.floating,
+            // Navigate to price selection page
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => EticketPriceSelectionPage(
+                  routeDetails: {
+                    ...r,
+                    '_id': routeId,
+                    'routeId': routeId,
+                    'start': start,
+                    'destination': destination,
+                    'departure': departure,
+                    'arrival': arrival,
+                    'duration': duration,
+                    'distance': distance,
+                    'routeNumber': routeNumber,
+                    'busName': busName,
+                    'busType': busData['busType'] ?? routeData['busType'] ?? r['busType'] ?? 'Standard',
+                    'totalSeats': busData['totalSeats'] ?? routeData['totalSeats'] ?? 40,
+                    'price': routeData['price'] ?? r['price'] ?? 0,
+                    'priceDeluxe': routeData['priceDeluxe'] ?? r['priceDeluxe'],
+                    'priceLuxury': routeData['priceLuxury'] ?? r['priceLuxury'],
+                    'bookedSeats': r['bookedSeats'] ?? [],
+                  },
+                  selectedDate: _selectedDate,
+                ),
               ),
             );
           },
@@ -457,7 +459,7 @@ class _SchedulePageState extends State<SchedulePage> {
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                'Route ID: $routeId',
+                                'Route ID: ${routeId.substring(0, 8)}...',
                                 style: AppTextStyles.body.copyWith(
                                   fontSize: 11,
                                   color: AppColors.textSecondary,
@@ -502,7 +504,6 @@ class _SchedulePageState extends State<SchedulePage> {
                   ],
                 ),
                 const SizedBox(height: 16),
-
                 // Time and duration row
                 Row(
                   children: [
@@ -512,7 +513,7 @@ class _SchedulePageState extends State<SchedulePage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Departure',
+                            'Dispatch',
                             style: AppTextStyles.body.copyWith(
                               fontSize: 11,
                               color: AppColors.textSecondary,
@@ -547,9 +548,7 @@ class _SchedulePageState extends State<SchedulePage> {
                               Expanded(
                                 child: Container(
                                   height: 2,
-                                  color: AppColors.waygoLightBlue.withOpacity(
-                                    0.3,
-                                  ),
+                                  color: AppColors.waygoLightBlue.withOpacity(0.3),
                                 ),
                               ),
                               Icon(
@@ -560,9 +559,7 @@ class _SchedulePageState extends State<SchedulePage> {
                               Expanded(
                                 child: Container(
                                   height: 2,
-                                  color: AppColors.waygoLightBlue.withOpacity(
-                                    0.3,
-                                  ),
+                                  color: AppColors.waygoLightBlue.withOpacity(0.3),
                                 ),
                               ),
                               Container(
@@ -614,55 +611,7 @@ class _SchedulePageState extends State<SchedulePage> {
                     ),
                   ],
                 ),
-
-                const SizedBox(height: 12),
-
-                // Stops row (no prices)
-                if (stops.isNotEmpty) ...[
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Stops',
-                      style: AppTextStyles.body.copyWith(
-                        fontSize: 11,
-                        color: AppColors.textSecondary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  SizedBox(
-                    height: 28,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: stops.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 6),
-                      itemBuilder: (context, i) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.waygoPaleBackground.withOpacity(
-                              0.6,
-                            ),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            stops[i],
-                            style: AppTextStyles.body.copyWith(
-                              fontSize: 11,
-                              color: AppColors.textDark,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-
+                const SizedBox(height: 16),
                 // Kilometers and Total Time info
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -672,6 +621,7 @@ class _SchedulePageState extends State<SchedulePage> {
                   ),
                   child: Row(
                     children: [
+                      // Kilometers
                       if (distanceStr.isNotEmpty) ...[
                         Icon(
                           Icons.straighten,
@@ -689,6 +639,7 @@ class _SchedulePageState extends State<SchedulePage> {
                         ),
                         const SizedBox(width: 16),
                       ],
+                      // Total Time
                       if (duration.toString().isNotEmpty) ...[
                         Icon(
                           Icons.access_time,
@@ -714,66 +665,6 @@ class _SchedulePageState extends State<SchedulePage> {
                     ],
                   ),
                 ),
-
-                const SizedBox(height: 12),
-
-                // Bus information (no price)
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            busName,
-                            style: AppTextStyles.body.copyWith(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textDark,
-                            ),
-                          ),
-                          if (regNumber.isNotEmpty) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              'Bus: $regNumber',
-                              style: AppTextStyles.body.copyWith(
-                                fontSize: 11,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-
-                // Available seats
-                if (availableSeats < totalSeats) ...[
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.event_seat,
-                        size: 14,
-                        color: availableSeats > 5
-                            ? Colors.green
-                            : Colors.orange,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '$availableSeats seats available',
-                        style: AppTextStyles.body.copyWith(
-                          fontSize: 11,
-                          color: availableSeats > 5
-                              ? Colors.green
-                              : Colors.orange,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
               ],
             ),
           ),
@@ -873,7 +764,7 @@ class _SchedulePageState extends State<SchedulePage> {
             ),
             const SizedBox(height: 20),
             Text(
-              'Find Your Bus Schedule',
+              'Book Your E-Ticket',
               style: AppTextStyles.heading.copyWith(
                 color: AppColors.textDark,
                 fontSize: 20,
@@ -881,7 +772,7 @@ class _SchedulePageState extends State<SchedulePage> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Select your route and date to view\navailable bus schedules',
+              'Select your route and date to view\navailable schedules and book tickets',
               style: AppTextStyles.body.copyWith(
                 color: AppColors.textSecondary,
               ),
@@ -946,7 +837,7 @@ class _SchedulePageState extends State<SchedulePage> {
       body: Container(
         decoration: BoxDecoration(
           image: DecorationImage(
-            image: const NetworkImage(
+            image: NetworkImage(
               'https://images.unsplash.com/photo-1570125909232-eb263c188f7e?w=1200&q=80',
             ),
             fit: BoxFit.cover,
@@ -965,16 +856,19 @@ class _SchedulePageState extends State<SchedulePage> {
                 // Header
                 Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: AppColors.waygoDarkBlue,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        Icons.schedule,
-                        color: AppColors.waygoLightBlue,
-                        size: 24,
+                    GestureDetector(
+                      onTap: () => Navigator.maybePop(context),
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.waygoDarkBlue,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          Icons.arrow_back,
+                          color: AppColors.waygoLightBlue,
+                          size: 24,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -983,14 +877,14 @@ class _SchedulePageState extends State<SchedulePage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Bus Schedules',
+                            'Book E-Ticket',
                             style: AppTextStyles.heading.copyWith(
                               color: AppColors.textDark,
                               fontSize: 24,
                             ),
                           ),
                           Text(
-                            'Find the perfect journey',
+                            'Search and book your journey',
                             style: AppTextStyles.body.copyWith(
                               color: AppColors.textSecondary,
                               fontSize: 13,
@@ -1013,3 +907,4 @@ class _SchedulePageState extends State<SchedulePage> {
     );
   }
 }
+

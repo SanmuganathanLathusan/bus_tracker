@@ -9,6 +9,7 @@ const Feedback = require("../models/Feedback");
 const Maintenance = require("../models/Maintenance");
 const News = require("../models/News");
 const Depot = require("../models/Depot");
+const { notifyDriverAssignment } = require("../utils/notificationService");
 const {
   markDriverAssigned,
   releaseDriverIfIdle,
@@ -275,6 +276,11 @@ exports.createAssignment = async (req, res) => {
 
     // Populate the assignment for response
     const populatedAssignment = await populateAssignment(assignment._id);
+
+    // Send push notification to driver (async, don't wait)
+    notifyDriverAssignment(driverId, populatedAssignment).catch(err => {
+      console.error("Failed to send assignment notification:", err);
+    });
 
     res.status(201).json({
       message: "Assignment created successfully",
@@ -822,6 +828,83 @@ exports.updateDriverDutyStatus = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: "Failed to update driver status" });
+  }
+};
+
+// GET PRICING STATISTICS WITH ROUTE DATA
+exports.getPricingStats = async (req, res) => {
+  try {
+    // Get all active routes with bus information
+    const routes = await Route.find({ isActive: true })
+      .populate("busId", "busNumber busName totalSeats busType")
+      .select("routeNumber start destination departure arrival price priceDeluxe priceLuxury totalSeats distance busId busName")
+      .sort({ start: 1, destination: 1 });
+
+    // Get all paid reservations
+    const reservations = await Reservation.find({ status: "paid" })
+      .populate("routeId", "routeNumber start destination price")
+      .select("routeId seats date amount");
+
+    // Calculate stats per route
+    const routeStats = routes.map(route => {
+      const routeReservations = reservations.filter(
+        r => r.routeId && r.routeId._id.toString() === route._id.toString()
+      );
+      
+      const totalSold = routeReservations.reduce((sum, res) => sum + (res.seats?.length || 0), 0);
+      const totalIncome = routeReservations.reduce((sum, res) => sum + (res.amount || 0), 0);
+      
+      // Determine price based on bus type
+      const busType = route.busId?.busType || "standard";
+      let routePrice = route.price;
+      if (busType === "deluxe" && route.priceDeluxe) {
+        routePrice = route.priceDeluxe;
+      } else if (busType === "luxury" && route.priceLuxury) {
+        routePrice = route.priceLuxury;
+      }
+
+      return {
+        routeId: route._id.toString(),
+        routeNumber: route.routeNumber || `R${route._id.toString().substring(0, 6)}`,
+        route: `${route.start} - ${route.destination}`,
+        start: route.start,
+        destination: route.destination,
+        departure: route.departure,
+        arrival: route.arrival,
+        price: routePrice,
+        priceDeluxe: route.priceDeluxe,
+        priceLuxury: route.priceLuxury,
+        capacity: route.totalSeats || route.busId?.totalSeats || 40,
+        sold: totalSold,
+        income: totalIncome,
+        availableSeats: (route.totalSeats || route.busId?.totalSeats || 40) - totalSold,
+        reservation: route.isActive ? 'Enabled' : 'Disabled',
+        busNumber: route.busId?.busNumber || '',
+        busName: route.busName || route.busId?.busName || '',
+        busType: busType,
+        distance: route.distance || null,
+      };
+    });
+
+    // Calculate overall statistics
+    const totalIncome = routeStats.reduce((sum, r) => sum + r.income, 0);
+    const totalSold = routeStats.reduce((sum, r) => sum + r.sold, 0);
+    const avgPrice = routeStats.length > 0
+      ? routeStats.reduce((sum, r) => sum + r.price, 0) / routeStats.length
+      : 0;
+
+    res.json({
+      routes: routeStats,
+      stats: {
+        totalIncome,
+        totalSold,
+        averagePrice: avgPrice,
+        activeRoutes: routeStats.length,
+      },
+    });
+  } catch (error) {
+    console.error("Get pricing stats error:", error);
+    res.status(500).json({ error: "Failed to fetch pricing statistics" });
   }
 };
 

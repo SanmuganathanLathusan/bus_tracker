@@ -5,6 +5,7 @@ const cors = require("cors");
 const path = require("path");
 const fs = require("fs");
 const connectDB = require("./config/db");
+const { initializeFirebase } = require("./config/firebase");
 const paymentRoutes = require('./routes/paymentRoutes');
 
 // --- Quick environment checks (safe: prints length only) ---
@@ -34,6 +35,9 @@ if (stripeKey) {
 
 // --- Connect to DB ---
 connectDB();
+
+// --- Initialize Firebase ---
+initializeFirebase();
 
 // --- App setup ---
 const app = express();
@@ -69,6 +73,7 @@ app.use("/api/feedback", require("./routes/feedbackRoutes"));
 app.use("/api/notifications", require("./routes/notificationRoutes"));
 app.use("/api/admin", require("./routes/adminRoutes"));
 app.use("/api/pricing", require("./routes/pricingRoutes"));
+app.use("/api/fcm", require("./routes/fcmRoutes"));
 
 // Health check
 app.get("/api/health", (req, res) => {

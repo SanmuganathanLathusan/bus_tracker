@@ -9,11 +9,6 @@ const userSchema = new mongoose.Schema({
   profileImage: { type: String },
   googleId: { type: String, unique: true, sparse: true },
   isGoogleUser: { type: Boolean, default: false },
-
-  // ********** Added for reset-password **********
-  resetPasswordToken: { type: String },
-  resetPasswordExpires: { type: Date },
-
   busId: { type: mongoose.Schema.Types.ObjectId, ref: "Bus" },
   homeDepotId: { type: mongoose.Schema.Types.ObjectId, ref: "Depot" },
   currentAssignmentId: { type: mongoose.Schema.Types.ObjectId, ref: "Assignment" },
@@ -24,6 +19,8 @@ const userSchema = new mongoose.Schema({
   },
   licenseNumber: { type: String },
   isActive: { type: Boolean, default: true },
+  fcmToken: { type: String },
+  fcmTokens: [{ type: String }],
 }, { timestamps: true });
 
 module.exports = mongoose.model("User", userSchema);
