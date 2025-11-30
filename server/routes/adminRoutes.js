@@ -18,7 +18,8 @@ const {
   listDepots,
   createDepot,
   updateDepot,
-  updateDriverDutyStatus
+  updateDriverDutyStatus,
+  getPricingStats
 } = require("../controllers/adminController");
 const { updateBusStatus } = require("../controllers/busController");
 
@@ -64,5 +65,8 @@ router.delete("/assignments/:id", deleteAssignment);
 
 // Live tracking
 router.get("/tracking/buses", getBusesForTracking);
+
+// Pricing statistics
+router.get("/pricing/stats", getPricingStats);
 
 module.exports = router;
