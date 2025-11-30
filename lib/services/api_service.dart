@@ -4,8 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
   static const String baseUrl = "http://10.0.2.2:5000/api/auth";
+  // use 10.0.2.2 if Android emulator, localhost if web
 
-  // ---------------- REGISTER ----------------
   Future<Map<String, dynamic>> register({
     required String userType,
     required String userName,
@@ -15,7 +15,6 @@ class AuthService {
   }) async {
     try {
       print('🔵 Registering user: $email');
-
       final response = await http
           .post(
             Uri.parse("$baseUrl/register"),
@@ -30,7 +29,9 @@ class AuthService {
           )
           .timeout(const Duration(seconds: 10));
 
-      print('🔵 Response: ${response.statusCode} ${response.body}');
+      print('🔵 Response status: ${response.statusCode}');
+      print('🔵 Response body: ${response.body}');
+
       final data = jsonDecode(response.body);
 
       if (response.statusCode != 200 && response.statusCode != 201) {
@@ -44,10 +45,10 @@ class AuthService {
     }
   }
 
-  // ---------------- LOGIN ----------------
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {
       print('🔵 Logging in user: $email');
+      print('🔵 API URL: $baseUrl/login');
 
       final response = await http
           .post(
@@ -57,16 +58,23 @@ class AuthService {
           )
           .timeout(const Duration(seconds: 10));
 
-      print('🔵 Response: ${response.statusCode} ${response.body}');
+      print('🔵 Response status: ${response.statusCode}');
+      print('🔵 Response body: ${response.body}');
 
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200 && data['token'] != null) {
         SharedPreferences prefs = await SharedPreferences.getInstance();
-        await prefs.setString("token", data['token']);
-        await prefs.setString("userType", data['user']['userType']);
-        await prefs.setString("userName", data['user']['userName']);
-        print('✅ Login successful');
+        await prefs.setString("token", data['token']); // save JWT
+        await prefs.setString(
+          "userType",
+          data['user']['userType'],
+        ); // save user type
+        await prefs.setString(
+          "userName",
+          data['user']['userName'],
+        ); // save user name
+        print('✅ Login successful, token saved');
       } else {
         throw Exception(data['error'] ?? 'Login failed');
       }
@@ -74,21 +82,22 @@ class AuthService {
       return data;
     } catch (e) {
       print('❌ Login error: $e');
-
       if (e.toString().contains('Failed host lookup') ||
           e.toString().contains('Connection refused') ||
           e.toString().contains('SocketException')) {
-        throw Exception("Cannot connect to server. Is backend running?");
+        throw Exception(
+          'Cannot connect to server. Make sure backend is running on port 5000.',
+        );
       }
-
       rethrow;
     }
   }
 
-  // ---------------- FORGOT PASSWORD ----------------
+  /// 🔹 Forgot Password - Send reset link to email
   Future<Map<String, dynamic>> forgotPassword({required String email}) async {
     try {
       print('🔵 Requesting password reset for: $email');
+      print('🔵 API URL: $baseUrl/forgot-password');
 
       final response = await http
           .post(
@@ -98,26 +107,32 @@ class AuthService {
           )
           .timeout(const Duration(seconds: 10));
 
-      print('🔵 Response: ${response.statusCode} ${response.body}');
+      print('🔵 Response status: ${response.statusCode}');
+      print('🔵 Response body: ${response.body}');
+
       final data = jsonDecode(response.body);
 
-      return {
-        "statusCode": response.statusCode,
-        "data": data,
-      };
+      return {"statusCode": response.statusCode, "data": data};
     } catch (e) {
       print('❌ Forgot password error: $e');
-
+      if (e.toString().contains('Failed host lookup') ||
+          e.toString().contains('Connection refused') ||
+          e.toString().contains('SocketException')) {
+        return {
+          "statusCode": 500,
+          "data": {
+            "message":
+                "Could not connect to server. Make sure backend is running on port 5000.",
+          },
+        };
+      }
       return {
         "statusCode": 500,
-        "data": {
-          "message": "Could not connect to server. Is backend running?",
-        }
+        "data": {"message": "Could not connect to server: $e"},
       };
     }
   }
 
-  // ---------------- LOGOUT ----------------
   Future<void> logout() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.remove("token");
@@ -125,30 +140,44 @@ class AuthService {
     await prefs.remove("userName");
   }
 
-  Future<String?> getToken() async =>
-      (await SharedPreferences.getInstance()).getString("token");
+  Future<String?> getToken() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    return prefs.getString("token");
+  }
 
-  Future<String?> getUserType() async =>
-      (await SharedPreferences.getInstance()).getString("userType");
+  Future<String?> getUserType() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    return prefs.getString("userType");
+  }
 
-  Future<String?> getUserName() async =>
-      (await SharedPreferences.getInstance()).getString("userName");
+  Future<String?> getUserName() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    return prefs.getString("userName");
+  }
 
-  Future<bool> isLoggedIn() async => (await getToken()) != null;
+  Future<bool> isLoggedIn() async {
+    final token = await getToken();
+    return token != null;
+  }
 
-  // ---------------- FIRST LOGIN HANDLING ----------------
+  // other existing methods like login, logout, etc.
+
+  /// 🔹 Check if the user logged in for the first time
   Future<bool> isFirstLogin() async {
-    return (await SharedPreferences.getInstance())
-            .getBool('isFirstLogin') ??
-        false;
+    final prefs = await SharedPreferences.getInstance();
+    // Default = false means not first login
+    return prefs.getBool('isFirstLogin') ?? false;
   }
 
+  /// 🔹 Mark user as having logged in once (so next time it's not first)
   Future<void> markFirstLoginDone() async {
-    await (await SharedPreferences.getInstance())
-        .setBool('isFirstLogin', true);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isFirstLogin', true);
   }
 
+  /// 🔹 Optional: reset flag when user logs out
   Future<void> clearFirstLoginFlag() async {
-    await (await SharedPreferences.getInstance()).remove('isFirstLogin');
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('isFirstLogin');
   }
 }
