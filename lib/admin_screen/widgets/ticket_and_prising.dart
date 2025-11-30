@@ -105,9 +105,9 @@ class _TicketPricingWidgetState extends State<TicketPricingWidget> {
                 ),
               ),
               ElevatedButton.icon(
-                onPressed: () {},
-                icon: const Icon(Icons.add),
-                label: const Text('Add Route'),
+                onPressed: _loadPricingData,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Refresh'),
               ),
             ],
           ),
@@ -127,7 +127,7 @@ class _TicketPricingWidgetState extends State<TicketPricingWidget> {
                 children: [
                   _buildSummaryCard(
                     'Total Income',
-                    '\$${totalIncome.toStringAsFixed(2)}',
+                    'Rs ${totalIncome.toStringAsFixed(2)}',
                     Icons.attach_money,
                     Colors.green,
                   ),
@@ -139,13 +139,13 @@ class _TicketPricingWidgetState extends State<TicketPricingWidget> {
                   ),
                   _buildSummaryCard(
                     'Average Price',
-                    '\$${avgPrice.toStringAsFixed(2)}',
+                    'Rs ${avgPrice.toStringAsFixed(2)}',
                     Icons.price_change,
                     Colors.purple,
                   ),
                   _buildSummaryCard(
                     'Active Routes',
-                    '${routes.length}',
+                    '${_stats['activeRoutes']}',
                     Icons.route,
                     Colors.orange,
                   ),
@@ -156,9 +156,16 @@ class _TicketPricingWidgetState extends State<TicketPricingWidget> {
           const SizedBox(height: 24),
 
           // Route Cards
-          Column(
-            children: routes.map((route) => _buildRouteCard(route)).toList(),
-          ),
+          _routes.isEmpty
+              ? const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(32.0),
+                    child: Text('No routes found'),
+                  ),
+                )
+              : Column(
+                  children: _routes.map((route) => _buildRouteCard(route)).toList(),
+                ),
         ],
       ),
     );
@@ -211,8 +218,13 @@ class _TicketPricingWidgetState extends State<TicketPricingWidget> {
     );
   }
 
-  Widget _buildRouteCard(Map<String, String> route) {
+  Widget _buildRouteCard(Map<String, dynamic> route) {
     bool reservationEnabled = route['reservation'] == 'Enabled';
+    final routeName = route['route'] ?? '${route['start']} - ${route['destination']}';
+    final price = route['price']?.toString() ?? '0.0';
+    final capacity = route['capacity']?.toString() ?? '0';
+    final sold = route['sold']?.toString() ?? '0';
+    final income = route['income']?.toStringAsFixed(2) ?? '0.00';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -233,7 +245,7 @@ class _TicketPricingWidgetState extends State<TicketPricingWidget> {
             child: Row(
               children: [
                 Text(
-                  route['route']!,
+                  routeName,
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -250,7 +262,7 @@ class _TicketPricingWidgetState extends State<TicketPricingWidget> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    '\$${route['price']}',
+                    'Rs $price',
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -278,7 +290,7 @@ class _TicketPricingWidgetState extends State<TicketPricingWidget> {
                         ),
                       ),
                       Text(
-                        '${route['income']}',
+                        'Rs $income',
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
@@ -301,7 +313,7 @@ class _TicketPricingWidgetState extends State<TicketPricingWidget> {
                 Icon(Icons.people, size: 16, color: Colors.grey.shade600),
                 const SizedBox(width: 4),
                 Text(
-                  'Capacity: ${route['capacity']}',
+                  'Capacity: $capacity',
                   style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                 ),
                 const SizedBox(width: 20),
@@ -312,7 +324,7 @@ class _TicketPricingWidgetState extends State<TicketPricingWidget> {
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  'Sold: ${route['sold']}',
+                  'Sold: $sold',
                   style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                 ),
                 const SizedBox(width: 20),
@@ -323,7 +335,7 @@ class _TicketPricingWidgetState extends State<TicketPricingWidget> {
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  'Reservation ${route['reservation']}',
+                  'Reservation ${route['reservation'] ?? 'Enabled'}',
                   style: TextStyle(
                     color: reservationEnabled ? Colors.green : Colors.red,
                     fontSize: 13,
