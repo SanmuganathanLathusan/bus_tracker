@@ -2,18 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:waygo/user_screen/HomePage.dart';
 import 'package:waygo/user_screen/forgotpassword.dart';
 import 'package:waygo/user_screen/passenger_dashboard.dart';
-import 'package:waygo/user_screen/pages/etickets_page.dart';
 import 'package:waygo/user_screen/pages/live_location_page.dart';
 import 'package:waygo/user_screen/pages/news_page.dart';
 import 'package:waygo/user_screen/pages/schedule_page.dart';
 import 'package:waygo/user_screen/pages/seat_reserve/seat_reservation_home.dart';
 import 'package:waygo/user_screen/pages/ticket_prices_page.dart';
+import 'package:waygo/user_screen/pages/eticket_booking_page.dart';
 import 'package:waygo/user_screen/signup.dart';
 import 'package:waygo/user_screen/splash.dart';
 import 'package:waygo/user_screen/welcome_screen.dart';
 import 'package:waygo/admin_screen/admin_dashboard.dart';
 import 'package:waygo/driver_screen/driver_dashboard.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
+
+// import your new dashboard pages
 
 void main() {
   Stripe.publishableKey =
@@ -30,10 +32,9 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'WayGo',
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        primarySwatch: Colors.blue, // later replace with AppColors
       ),
       initialRoute: '/',
-      
       routes: {
         '/': (context) => const SplashScreen(),
         '/welcome': (context) => const WelcomeScreen(),
@@ -49,10 +50,10 @@ class MyApp extends StatelessWidget {
         // dashboard routes
         '/news': (context) => const MainNews(),
         '/live_location': (context) => const LiveLocationPage(),
-        '/schedule': (context) => const Schedule(),
+        '/schedule': (context) => const SchedulePage(),
         '/seats': (context) => const SeatReservationHome(),
-        '/prices': (context) => const TicketPrices(), 
-        '/eticket': (context) => ETicketPage(reservationId: ''), 
+        '/prices': (context) => const TicketPricesPage(),
+        '/eticket': (context) => const EticketBookingPage(),
       },
     );
   }
