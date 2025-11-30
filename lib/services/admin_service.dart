@@ -173,5 +173,17 @@ class AdminService {
     if (data is List) return data;
     throw Exception('Unexpected depots response');
   }
+
+  Future<Map<String, dynamic>> getPricingStats() async {
+    final token = await _getToken();
+    if (token == null) throw Exception('Not authenticated');
+
+    final uri = Uri.parse("$_adminBase/pricing/stats");
+    final response =
+        await http.get(uri, headers: _authHeaders(token)).timeout(_timeout);
+    final data = _decode(response);
+    if (data is Map<String, dynamic>) return data;
+    throw Exception('Unexpected pricing stats response');
+  }
 }
 
