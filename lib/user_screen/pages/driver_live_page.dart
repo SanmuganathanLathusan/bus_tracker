@@ -33,3 +33,99 @@ class _DriverLivePageState extends State<DriverLivePage> {
 
   Timer? timer; 
   // Timer to update location every few seconds
+  @override
+  void initState() {
+    super.initState();
+
+    _initSocket(); 
+    // Initialize socket connection
+
+    _startLocationUpdates(); 
+    // Start sending live location
+  }
+
+
+  void _initSocket() {
+    socket = IO.io(
+      'http://10.0.2.2:5000', 
+      // Localhost for Android Emulator (10.0.2.2 means PC localhost)
+
+      IO.OptionBuilder()
+          .setTransports(['websocket']) 
+          // Use WebSocket transport for real-time data
+
+          .disableAutoConnect() 
+          // Prevents auto connection, so we manually connect
+
+          .build(),
+    );
+
+    socket!.connect(); 
+    // Connect socket manually
+
+    socket!.onConnect((_) => print('Connected to server')); 
+    // On successful connection
+
+    socket!.onDisconnect((_) => print('Disconnected')); 
+    // On disconnection
+  }
+
+
+  void _startLocationUpdates() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    // Check if location is enabled in device
+
+    if (!serviceEnabled) return; 
+    // If location is OFF → exit
+
+    await Geolocator.requestPermission(); 
+    // Request location permission (runtime)
+
+    timer = Timer.periodic(const Duration(seconds: 3), (_) async {
+      // Every 3 seconds execute following block
+
+      Position pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        // High accuracy for better precision
+      );
+
+      _position = pos; 
+      // Save latest location
+
+      socket?.emit("updateLocation", {
+        // Send location data to backend via socket
+
+        "busId": busId, 
+        // Bus ID used to identify which bus
+
+        "lat": pos.latitude, 
+        // Current latitude
+
+        "lng": pos.longitude, 
+        // Current longitude
+      });
+    });
+  }
+
+
+  @override
+  void dispose() {
+    timer?.cancel(); 
+    // Stop timer when widget closes
+
+    socket?.dispose(); 
+    // Dispose socket properly
+
+    super.dispose(); 
+    // Always call super
+  }
+
+
+  @override
+  Widget build(BuildContext context) {
+    // UI code
+
+    return Scaffold(
+      appBar: AppBar(title: const Text("Driver Live Tracker")),
+      // Top app bar title
+
