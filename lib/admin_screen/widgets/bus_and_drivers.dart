@@ -15,6 +15,7 @@ class _BusDriverWidgetState extends State<BusDriverWidget> {
 
   bool _isLoading = true;
   bool _isAssigning = false;
+  String? _resettingDriverId;
   String? _error;
 
   Map<String, dynamic> _stats = {
@@ -277,6 +278,36 @@ class _BusDriverWidgetState extends State<BusDriverWidget> {
           backgroundColor: Colors.redAccent,
         ),
       );
+    }
+  }
+
+  Future<void> _resetDriverAssignment(String driverId) async {
+    setState(() {
+      _resettingDriverId = driverId;
+    });
+    try {
+      await _adminService.resetDriverAssignment(driverId);
+      await _loadData();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Driver reset to available."),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _resettingDriverId = null);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Failed to reset driver: $e"),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _resettingDriverId = null);
+      }
     }
   }
 
@@ -569,6 +600,8 @@ class _BusDriverWidgetState extends State<BusDriverWidget> {
                           onFilterChanged: (value) =>
                               setState(() => _driverStatusFilter = value),
                           onDutyStatusChange: _handleDriverDutyStatusUpdate,
+                          onResetAssignment: _resetDriverAssignment,
+                          resettingDriverId: _resettingDriverId,
                         ),
                       ),
                     ],
@@ -591,6 +624,8 @@ class _BusDriverWidgetState extends State<BusDriverWidget> {
                         onFilterChanged: (value) =>
                             setState(() => _driverStatusFilter = value),
                         onDutyStatusChange: _handleDriverDutyStatusUpdate,
+                        onResetAssignment: _resetDriverAssignment,
+                        resettingDriverId: _resettingDriverId,
                       ),
                     ],
                   );
@@ -604,260 +639,258 @@ class _BusDriverWidgetState extends State<BusDriverWidget> {
   }
 
   Widget _buildAssignmentCard() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+  // keep card height bounded so keyboard or small viewports don't overflow
+  final maxCardHeight = MediaQuery.of(context).size.height * 0.75;
+
+  return Container(
+    padding: const EdgeInsets.all(24),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.08),
+          blurRadius: 20,
+          offset: const Offset(0, 4),
+        ),
+      ],
+    ),
+    child: AnimatedPadding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      duration: const Duration(milliseconds: 160),
+      curve: Curves.easeOut,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxCardHeight),
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.teal.shade50,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(Icons.schedule, color: Colors.teal.shade600),
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Text(
-                  "Assign Driver Schedule",
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              IconButton(
-                onPressed: _loadData,
-                icon: const Icon(Icons.refresh),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Wrap(
-            spacing: 16,
-            runSpacing: 16,
-            children: [
-              SizedBox(
-                width: 260,
-                child: DropdownButtonFormField<String?>(
-                  value: _assignmentDepotId,
-                  decoration: const InputDecoration(
-                    labelText: "Depot",
-                    border: OutlineInputBorder(),
-                  ),
-                  items: [
-                    const DropdownMenuItem<String?>(
-                      value: null,
-                      child: Text("All depots"),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.teal.shade50,
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    ..._depots.map(
-                      (depot) => DropdownMenuItem<String?>(
-                        value: depot["_id"].toString(),
-                        child: Text(
-                          "${depot["code"] ?? ""} - ${depot["name"] ?? "Depot"}",
+                    child: Icon(Icons.schedule, color: Colors.teal.shade600),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      "Assign Driver Schedule",
+                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  IconButton(onPressed: _loadData, icon: const Icon(Icons.refresh)),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Responsive controls
+              LayoutBuilder(builder: (context, constraints) {
+                final maxW = constraints.maxWidth;
+                final bool wide = maxW > 900;
+                final double target = wide ? 280.0 : (maxW / 2) - 24.0;
+                final double controlWidth = target.clamp(150.0, maxW);
+
+                Widget control(Widget child) => SizedBox(width: controlWidth, child: child);
+
+                return Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    // Depot
+                    control(
+                      DropdownButtonFormField<String?>(
+                        value: _assignmentDepotId,
+                        decoration: const InputDecoration(
+                          labelText: "Depot",
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        isExpanded: true,
+                        items: [
+                          const DropdownMenuItem<String?>(value: null, child: Text("All depots")),
+                          ..._depots.map((depot) => DropdownMenuItem<String?>(
+                                value: depot["_id"].toString(),
+                                child: Text(
+                                  "${depot["code"] ?? ""} - ${depot["name"] ?? "Depot"}",
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              )),
+                        ],
+                        onChanged: (value) {
+                          setState(() {
+                            _assignmentDepotId = value;
+                            _selectedDriverId = _resolveSelection(_selectedDriverId, _availableDriversForAssignment);
+                            _selectedBusId = _resolveSelection(_selectedBusId, _availableBusesForAssignment);
+                          });
+                        },
+                      ),
+                    ),
+
+                    // Driver (compact row item to avoid wide intrinsic width)
+                    control(
+                      DropdownButtonFormField<String>(
+                        value: _selectedDriverId,
+                        decoration: const InputDecoration(
+                          labelText: "Driver",
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        isExpanded: true,
+                        items: _availableDriversForAssignment.map((driver) {
+                          final depotLabel = (() {
+                            final d = driver["homeDepotId"];
+                            if (d == null) return "No depot";
+                            if (d is Map) {
+                              final code = d["code"] ?? "";
+                              final name = d["name"] ?? "";
+                              return (code.toString().isNotEmpty) ? "$code • $name" : name.toString();
+                            }
+                            return d.toString();
+                          })();
+                          return DropdownMenuItem<String>(
+                            value: driver["_id"].toString(),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    driver["userName"] ?? "Unnamed Driver",
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  fit: FlexFit.loose,
+                                  child: Text(
+                                    depotLabel,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontSize: 11, color: Colors.black54),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: _availableDriversForAssignment.isEmpty ? null : (value) => setState(() => _selectedDriverId = value),
+                      ),
+                    ),
+
+                    // Route
+                    control(
+                      DropdownButtonFormField<String>(
+                        value: _selectedRouteId,
+                        decoration: const InputDecoration(
+                          labelText: "Route",
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        isExpanded: true,
+                        items: _routes.map((route) {
+                          return DropdownMenuItem<String>(
+                            value: route["_id"].toString(),
+                            child: Text(
+                              "${route["start"] ?? "N/A"} → ${route["destination"] ?? "N/A"}",
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (value) => setState(() => _selectedRouteId = value),
+                      ),
+                    ),
+
+                    // Bus optional
+                    control(
+                      DropdownButtonFormField<String?>(
+                        value: _selectedBusId,
+                        decoration: const InputDecoration(
+                          labelText: "Bus (optional)",
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        isExpanded: true,
+                        items: [
+                          const DropdownMenuItem<String?>(value: null, child: Text("Unassigned")),
+                          ..._availableBusesForAssignment.map((bus) {
+                            final depotData = bus["depotId"];
+                            String depotLabel = "";
+                            if (depotData != null) {
+                              depotLabel = depotData is Map ? (depotData["code"] ?? depotData["name"] ?? "") : depotData.toString();
+                            }
+                            final label = [
+                              bus["busNumber"] ?? bus["busName"] ?? "Unnamed bus",
+                              if (depotLabel.isNotEmpty) "($depotLabel)"
+                            ].join(" ");
+                            return DropdownMenuItem<String?>(value: bus["_id"].toString(), child: Text(label, overflow: TextOverflow.ellipsis));
+                          }),
+                        ],
+                        onChanged: (value) => setState(() => _selectedBusId = value),
+                      ),
+                    ),
+
+                    // Date picker
+                    control(
+                      OutlinedButton.icon(
+                        onPressed: _pickDate,
+                        icon: const Icon(Icons.calendar_today_outlined),
+                        label: Text(
+                          _selectedDate == null ? "Pick Date" : DateFormat('dd MMM yyyy').format(_selectedDate!),
                           overflow: TextOverflow.ellipsis,
                         ),
+                        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10)),
+                      ),
+                    ),
+
+                    // Time picker
+                    control(
+                      OutlinedButton.icon(
+                        onPressed: _pickTime,
+                        icon: const Icon(Icons.access_time),
+                        label: Text(_selectedTime == null ? "Pick Time" : _selectedTime!.format(context), overflow: TextOverflow.ellipsis),
+                        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10)),
                       ),
                     ),
                   ],
-                  onChanged: (value) {
-                    setState(() {
-                      _assignmentDepotId = value;
-                      _selectedDriverId = _resolveSelection(
-                        _selectedDriverId,
-                        _availableDriversForAssignment,
-                      );
-                      _selectedBusId = _resolveSelection(
-                        _selectedBusId,
-                        _availableBusesForAssignment,
-                      );
-                    });
-                  },
+                );
+              }),
+
+              const SizedBox(height: 12),
+
+              // Notes
+              TextField(
+                controller: _notesController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: "Notes (optional)",
+                  border: OutlineInputBorder(),
+                  isDense: true,
                 ),
               ),
-              SizedBox(
-                width: 280,
-                child: DropdownButtonFormField<String>(
-                  value: _selectedDriverId,
-                  decoration: const InputDecoration(
-                    labelText: "Driver",
-                    border: OutlineInputBorder(),
-                  ),
-                  items: _availableDriversForAssignment
-                      .map(
-                        (driver) => DropdownMenuItem(
-                          value: driver["_id"].toString(),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(driver["userName"] ?? "Unnamed Driver"),
-                              Text(
-                                () {
-                                  final depot = driver["homeDepotId"];
-                                  if (depot == null) return "No depot";
-                                  if (depot is Map) {
-                                    final code = depot["code"];
-                                    final name = depot["name"];
-                                    if (code != null && code.toString().isNotEmpty) {
-                                      return "${code.toString()} • ${name ?? ""}";
-                                    }
-                                    return name?.toString() ?? "Depot";
-                                  }
-                                  return depot.toString();
-                                }(),
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.black54,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: _availableDriversForAssignment.isEmpty
-                      ? null
-                      : (value) => setState(() {
-                            _selectedDriverId = value;
-                          }),
-                ),
-              ),
-              SizedBox(
-                width: 280,
-                child: DropdownButtonFormField<String>(
-                  value: _selectedRouteId,
-                  decoration: const InputDecoration(
-                    labelText: "Route",
-                    border: OutlineInputBorder(),
-                  ),
-                  items: _routes
-                      .map(
-                        (route) => DropdownMenuItem(
-                          value: route["_id"].toString(),
-                          child: Text(
-                            "${route["start"] ?? "N/A"} → ${route["destination"] ?? "N/A"}",
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) => setState(() {
-                    _selectedRouteId = value;
-                  }),
-                ),
-              ),
-              SizedBox(
-                width: 280,
-                child: DropdownButtonFormField<String?>(
-                  value: _selectedBusId,
-                  decoration: const InputDecoration(
-                    labelText: "Bus (optional)",
-                    border: OutlineInputBorder(),
-                  ),
-                  items: [
-                    const DropdownMenuItem<String?>(
-                      value: null,
-                      child: Text("Unassigned"),
-                    ),
-                    ..._availableBusesForAssignment.map(
-                      (bus) {
-                        final depotData = bus["depotId"];
-                        String? depotLabel;
-                        if (depotData != null) {
-                          if (depotData is Map) {
-                            depotLabel =
-                                depotData["code"] ?? depotData["name"] ?? "";
-                          } else {
-                            depotLabel = depotData.toString();
-                          }
-                        }
-                        final parts = <String>[
-                          bus["busNumber"] ?? bus["busName"] ?? "Unnamed bus",
-                          if (depotLabel != null && depotLabel.isNotEmpty)
-                            "($depotLabel)",
-                        ];
-                        return DropdownMenuItem<String?>(
-                          value: bus["_id"].toString(),
-                          child: Text(parts.join(" ")),
-                        );
-                      },
-                    ),
-                  ],
-                  onChanged: (value) => setState(() {
-                    _selectedBusId = value;
-                  }),
-                ),
-              ),
-              SizedBox(
-                width: 200,
-                child: OutlinedButton.icon(
-                  onPressed: _pickDate,
-                  icon: const Icon(Icons.calendar_today_outlined),
-                  label: Text(
-                    _selectedDate == null
-                        ? "Pick Date"
-                        : DateFormat('dd MMM yyyy').format(_selectedDate!),
-                  ),
-                ),
-              ),
-              SizedBox(
-                width: 200,
-                child: OutlinedButton.icon(
-                  onPressed: _pickTime,
-                  icon: const Icon(Icons.access_time),
-                  label: Text(
-                    _selectedTime == null
-                        ? "Pick Time"
-                        : _selectedTime!.format(context),
-                  ),
+              const SizedBox(height: 12),
+
+              // Assign button
+              Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton.icon(
+                  onPressed: _isAssigning ? null : _assignSchedule,
+                  icon: _isAssigning
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.send),
+                  label: Text(_isAssigning ? "Assigning..." : "Assign Schedule"),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _notesController,
-            maxLines: 3,
-            decoration: const InputDecoration(
-              labelText: "Notes (optional)",
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Align(
-            alignment: Alignment.centerRight,
-            child: FilledButton.icon(
-              onPressed: _isAssigning ? null : _assignSchedule,
-              icon: _isAssigning
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Icon(Icons.send),
-              label: Text(_isAssigning ? "Assigning..." : "Assign Schedule"),
-            ),
-          ),
-        ],
+        ),
       ),
-    );
-  }
+    ),
+  );
+}
+
 
   Widget _buildStatCard(
     String title,
@@ -1035,6 +1068,17 @@ class BusManagementCard extends StatelessWidget {
     final depot = bus["depotId"];
     final conditionStatus = (bus["conditionStatus"] ?? "workable").toString();
     final assignmentStatus = (bus["assignmentStatus"] ?? "available").toString();
+    final assignment = bus["currentAssignment"];
+    final route = assignment is Map ? assignment["route"] : null;
+    final routeLabel = route != null
+        ? "${route["start"] ?? "N/A"} → ${route["destination"] ?? "N/A"}"
+        : null;
+    final scheduleLabel =
+        assignment != null ? _formatScheduleLabel(assignment) : null;
+    final assignmentDriver = assignment is Map && assignment["driver"] is Map
+        ? assignment["driver"] as Map<String, dynamic>
+        : null;
+    final assignedDriverName = assignmentDriver?["userName"]?.toString();
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -1187,6 +1231,48 @@ class BusManagementCard extends StatelessWidget {
                 style: TextStyle(color: Colors.grey.shade700),
               ),
             ),
+          if (assignment != null) ...[
+            const SizedBox(height: 16),
+            const Divider(),
+            const SizedBox(height: 12),
+            Text(
+              "Current Assignment",
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.blueGrey.shade700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _buildInfoChip(
+              Icons.route,
+              "Route",
+              routeLabel ?? "Route pending",
+              Colors.teal,
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildInfoChip(
+                    Icons.schedule,
+                    "Schedule",
+                    scheduleLabel ?? (assignment["status"] ?? "").toString(),
+                    Colors.indigo,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildInfoChip(
+                    Icons.person,
+                    "Driver",
+                    assignedDriverName ?? "TBD",
+                    Colors.deepPurple,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -1274,6 +1360,16 @@ class BusManagementCard extends StatelessWidget {
         return Colors.green;
     }
   }
+
+  String _formatScheduleLabel(Map<String, dynamic> assignment) {
+    final dateRaw = assignment["scheduledDate"];
+    final time = assignment["scheduledTime"]?.toString() ?? "";
+    if (dateRaw == null) return time;
+    final date = DateTime.tryParse(dateRaw.toString());
+    if (date == null) return time;
+    final dateLabel = DateFormat("dd MMM").format(date.toLocal());
+    return [dateLabel, time].where((value) => value.isNotEmpty).join(" • ");
+  }
 }
 
 class DriverManagementCard extends StatelessWidget {
@@ -1282,6 +1378,8 @@ class DriverManagementCard extends StatelessWidget {
   final void Function(String status) onFilterChanged;
   final Future<void> Function(String driverId, String dutyStatus)
       onDutyStatusChange;
+  final Future<void> Function(String driverId) onResetAssignment;
+  final String? resettingDriverId;
 
   static const Map<String, String> _driverStatusLabels = {
     "available": "Available",
@@ -1296,6 +1394,8 @@ class DriverManagementCard extends StatelessWidget {
     required this.selectedFilter,
     required this.onFilterChanged,
     required this.onDutyStatusChange,
+    required this.onResetAssignment,
+    this.resettingDriverId,
   }) : super(key: key);
 
   @override
@@ -1382,6 +1482,18 @@ class DriverManagementCard extends StatelessWidget {
     final dutyStatus = (driver['dutyStatus'] ?? 'available').toString();
     final dutyColor = _driverStatusColor(dutyStatus);
     final canUpdateStatus = dutyStatus != "assigned";
+    final assignment = driver["currentAssignment"];
+    final route = assignment is Map ? assignment["route"] : null;
+    final routeLabel = route != null
+        ? "${route["start"] ?? "N/A"} → ${route["destination"] ?? "N/A"}"
+        : null;
+    final assignmentBus = assignment is Map && assignment["bus"] is Map
+        ? assignment["bus"] as Map<String, dynamic>
+        : null;
+    final assignedBus = assignmentBus?["busNumber"] ?? assignmentBus?["busName"];
+    final scheduleLabel =
+        assignment != null ? _formatScheduleLabel(assignment) : null;
+    final isResetting = resettingDriverId == driver["_id"].toString();
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -1516,6 +1628,66 @@ class DriverManagementCard extends StatelessWidget {
                     : bus.toString()),
             color: Colors.blue.shade700,
           ),
+          if (assignment != null) ...[
+            const SizedBox(height: 12),
+            const Divider(),
+            const SizedBox(height: 12),
+            Text(
+              "Active Route",
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _driverInfoTile(
+              icon: Icons.route,
+              title: "Route",
+              value: routeLabel ?? "Pending",
+              color: Colors.teal,
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: _driverInfoTile(
+                    icon: Icons.schedule,
+                    title: "Schedule",
+                    value: scheduleLabel ?? assignment["status"] ?? "Pending",
+                    color: Colors.indigo,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _driverInfoTile(
+                    icon: Icons.directions_bus_filled,
+                    title: "Bus",
+                    value: assignedBus ??
+                        (assignment["bus"]?["busName"] ?? "TBD"),
+                    color: Colors.deepOrange,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: isResetting
+                    ? null
+                    : () => onResetAssignment(driver["_id"].toString()),
+                icon: isResetting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.restart_alt),
+                label: Text(isResetting ? "Resetting..." : "Reset to available"),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -1579,5 +1751,15 @@ class DriverManagementCard extends StatelessWidget {
       default:
         return Colors.green;
     }
+  }
+
+  String _formatScheduleLabel(Map<String, dynamic> assignment) {
+    final dateRaw = assignment["scheduledDate"];
+    final time = assignment["scheduledTime"]?.toString() ?? "";
+    if (dateRaw == null) return time;
+    final date = DateTime.tryParse(dateRaw.toString());
+    if (date == null) return time;
+    final dateLabel = DateFormat("dd MMM").format(date.toLocal());
+    return [dateLabel, time].where((value) => value.isNotEmpty).join(" • ");
   }
 }

@@ -19,6 +19,7 @@ const {
   createDepot,
   updateDepot,
   updateDriverDutyStatus,
+  resetDriverAssignment,
   getPricingStats
 } = require("../controllers/adminController");
 const { updateBusStatus } = require("../controllers/busController");
@@ -50,6 +51,7 @@ router.get("/buses/available", getAvailableBuses);
 router.get("/drivers/available", getAvailableDrivers);
 router.patch("/buses/:id/status", updateBusStatus);
 router.put("/drivers/:id/duty-status", updateDriverDutyStatus);
+router.put("/drivers/:id/reset-assignment", resetDriverAssignment);
 
 // Depot management
 router.get("/depots", listDepots);
