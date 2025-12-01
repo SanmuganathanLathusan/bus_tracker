@@ -128,4 +128,19 @@ class _DriverLivePageState extends State<DriverLivePage> {
     return Scaffold(
       appBar: AppBar(title: const Text("Driver Live Tracker")),
       // Top app bar title
+      body: Center(
+        child: _position == null
+            ? const CircularProgressIndicator()
+            // If GPS not yet fetched → show loader
+
+            : Text(
+                "Live: ${_position!.latitude}, ${_position!.longitude}",
+                // Display current live position
+
+                style: const TextStyle(fontSize: 18),
+              ),
+      ),
+    );
+  }
+}
 
