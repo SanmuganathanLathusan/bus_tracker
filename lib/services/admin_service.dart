@@ -162,6 +162,16 @@ class AdminService {
     throw Exception('Unexpected driver status response');
   }
 
+  Future<void> resetDriverAssignment(String driverId) async {
+    final token = await _getToken();
+    if (token == null) throw Exception('Not authenticated');
+
+    final uri = Uri.parse("$_adminBase/drivers/$driverId/reset-assignment");
+    final response =
+        await http.put(uri, headers: _authHeaders(token)).timeout(_timeout);
+    _decode(response);
+  }
+
   Future<List<dynamic>> getDepots() async {
     final token = await _getToken();
     if (token == null) throw Exception('Not authenticated');
