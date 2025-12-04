@@ -69,6 +69,40 @@ class _LiveLocationPageState extends State<LiveLocationPage>
   DateTime _lastUserUpdate = DateTime.fromMillisecondsSinceEpoch(0);
   DateTime _lastCameraMove = DateTime.fromMillisecondsSinceEpoch(0);
 
+  // Route search state
+  String? _selectedFrom;
+  String? _selectedTo;
+  DateTime _selectedDate = DateTime.now();
+  Map<String, dynamic>? _selectedRoute;
+  LatLng? _busLocation;
+  String? _busId;
+  Timer? _busLocationTimer;
+  final ReservationService _reservationService = ReservationService();
+  static const String baseUrl = "http://10.0.2.2:5000/api";
+
+  // City coordinates mapping for Sri Lanka
+  static const Map<String, LatLng> _cityCoordinates = {
+    'Colombo': LatLng(6.9271, 79.8612),
+    'Kandy': LatLng(7.2906, 80.6337),
+    'Galle': LatLng(6.0329, 80.2170),
+    'Matara': LatLng(5.9549, 80.5550),
+    'Jaffna': LatLng(9.6615, 80.0255),
+    'Negombo': LatLng(7.2083, 79.8358),
+    'Anuradhapura': LatLng(8.3114, 80.4037),
+    'Trincomalee': LatLng(8.5874, 81.2152),
+  };
+
+  final List<String> _cities = [
+    'Colombo',
+    'Kandy',
+    'Galle',
+    'Matara',
+    'Jaffna',
+    'Negombo',
+    'Anuradhapura',
+    'Trincomalee',
+  ];
+
   // Route info
   final LatLng origin = const LatLng(6.9271, 79.8612); // Colombo
   final LatLng destination = const LatLng(8.5550, 80.9980); // Mannar
