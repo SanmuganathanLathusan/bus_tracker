@@ -14,6 +14,7 @@ exports.searchRoutes = async (req, res) => {
 
     const searchDate = new Date(date);
     searchDate.setHours(0, 0, 0, 0);
+    const nextDay = new Date(searchDate.getTime() + 24 * 60 * 60 * 1000);
 
     // Find routes matching start and destination
     const routes = await Route.find({
