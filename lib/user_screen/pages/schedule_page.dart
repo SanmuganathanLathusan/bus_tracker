@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:waygo/services/reservation_service.dart';
 import 'package:waygo/utils/app_colors.dart';
 import 'package:waygo/utils/app_text_styles.dart';
+import 'bus_live_location_page.dart';
 
 class SchedulePage extends StatefulWidget {
   const SchedulePage({super.key});
@@ -368,7 +369,7 @@ class _SchedulePageState extends State<SchedulePage> {
 
   Widget _buildScheduleCard(Map<String, dynamic> r, int index) {
     // Use consistent field names from Route model
-    final routeId = r['_id']?.toString() ?? 'N/A';
+    final routeId = (r['_id'] ?? r['routeId'])?.toString() ?? 'N/A';
     final start = r['start'] ?? '';
     final destination = r['destination'] ?? '';
     final routeName = '$start - $destination';
@@ -387,9 +388,19 @@ class _SchedulePageState extends State<SchedulePage> {
     final regNumber = r['busNumber'] ?? '';
     final totalSeats = r['totalSeats'] ?? 40;
     final availableSeats = r['availableSeats'] ?? totalSeats;
+    final busId = r['busId']?.toString();
 
     // Route number
     final routeNumber = r['routeNumber'] ?? '';
+    
+    // Assignment/Schedule information
+    final assignmentId = r['assignmentId']?.toString();
+    final scheduledTime = r['scheduledTime']?.toString() ?? '';
+    final driverName = r['driverName']?.toString();
+    
+    // Live location information
+    final hasLiveLocation = r['hasLiveLocation'] == true;
+    final liveLocation = r['liveLocation'] as Map<String, dynamic>?;
 
     // Stops (optional)
     final rawStops = r['stops'];
@@ -457,13 +468,35 @@ class _SchedulePageState extends State<SchedulePage> {
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                'Route ID: $routeId',
+                                assignmentId != null
+                                    ? 'Schedule: ${scheduledTime.isNotEmpty ? scheduledTime : 'N/A'}'
+                                    : 'Route ID: ${routeId.length > 12 ? routeId.substring(0, 12) : routeId}',
                                 style: AppTextStyles.body.copyWith(
                                   fontSize: 11,
                                   color: AppColors.textSecondary,
-                                  fontFamily: 'monospace',
                                 ),
                               ),
+                              if (assignmentId != null) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.waygoLightBlue.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    'Scheduled',
+                                    style: AppTextStyles.body.copyWith(
+                                      fontSize: 9,
+                                      color: AppColors.waygoDarkBlue,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                           const SizedBox(height: 4),
@@ -480,6 +513,47 @@ class _SchedulePageState extends State<SchedulePage> {
                         ],
                       ),
                     ),
+                    if (hasLiveLocation && busId != null) ...[
+                      Builder(
+                        builder: (context) {
+                          // Capture busId for the closure
+                          final String currentBusId = busId!;
+                          return Container(
+                            margin: const EdgeInsets.only(right: 8),
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => BusLiveLocationPage(
+                                      busId: currentBusId,
+                                      busNumber: regNumber.isNotEmpty ? regNumber : null,
+                                      busName: busName,
+                                      routeName: routeName,
+                                      initialLocation: liveLocation,
+                                    ),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.location_on, size: 16),
+                              label: const Text('Live'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                elevation: 0,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
                     if (routeNumber.isNotEmpty)
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -740,6 +814,26 @@ class _SchedulePageState extends State<SchedulePage> {
                                 fontSize: 11,
                                 color: AppColors.textSecondary,
                               ),
+                            ),
+                          ],
+                          if (driverName != null && driverName.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.person,
+                                  size: 12,
+                                  color: AppColors.textSecondary,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Driver: $driverName',
+                                  style: AppTextStyles.body.copyWith(
+                                    fontSize: 11,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ],
