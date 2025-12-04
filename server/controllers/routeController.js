@@ -139,7 +139,9 @@ exports.searchRoutes = async (req, res) => {
       );
       const bookedSeats = [];
       routeReservations.forEach(res => {
-        bookedSeats.push(...res.seats);
+        if (res.seats && Array.isArray(res.seats)) {
+          bookedSeats.push(...res.seats);
+        }
       });
 
       const routeObj = route.toObject();
@@ -155,11 +157,11 @@ exports.searchRoutes = async (req, res) => {
 
       return {
         ...routeObj,
+        routeId: route._id,
         routeNumber: routeObj.routeNumber || `R${route._id.toString().substring(0, 6)}`,
         distance: routeObj.distance || null,
         bookedSeats: [...new Set(bookedSeats)],
         availableSeats: (routeObj.totalSeats || busData.totalSeats || 40) - bookedSeats.length,
-        // Ensure consistent field names
         start: routeObj.start,
         destination: routeObj.destination,
         departure: routeObj.departure,
