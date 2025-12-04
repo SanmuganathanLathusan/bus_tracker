@@ -423,6 +423,215 @@ class _LiveLocationPageState extends State<LiveLocationPage>
     return "${h}h ${m}m";
   }
 
+  // Generate route path with intermediate points for smoother visualization
+  List<LatLng> _generateRoutePath(LatLng origin, LatLng destination) {
+    final points = <LatLng>[origin];
+    
+    // Add intermediate points for smoother curve (simple interpolation)
+    const numIntermediatePoints = 10;
+    for (int i = 1; i < numIntermediatePoints; i++) {
+      final ratio = i / numIntermediatePoints;
+      final lat = origin.latitude + (destination.latitude - origin.latitude) * ratio;
+      final lng = origin.longitude + (destination.longitude - origin.longitude) * ratio;
+      points.add(LatLng(lat, lng));
+    }
+    
+    points.add(destination);
+    return points;
+  }
+
+  // ---------------- ROUTE SEARCH ----------------
+  Future<void> _showRouteSearchDialog() async {
+    String? from = _selectedFrom;
+    String? to = _selectedTo;
+    DateTime selectedDate = _selectedDate;
+
+    final result = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _RouteSearchBottomSheet(
+        initialFrom: from,
+        initialTo: to,
+        initialDate: selectedDate,
+        cities: _cities,
+      ),
+    );
+
+    if (result != null) {
+      setState(() {
+        _selectedFrom = result['from'];
+        _selectedTo = result['to'];
+        _selectedDate = result['date'];
+      });
+      await _searchAndSelectRoute();
+    }
+  }
+
+  Future<void> _searchAndSelectRoute() async {
+    if (_selectedFrom == null || _selectedTo == null) return;
+
+    try {
+      final dateForApi = DateFormat('yyyy-MM-dd').format(_selectedDate);
+      final routes = await _reservationService.searchRoutes(
+        start: _selectedFrom!,
+        destination: _selectedTo!,
+        date: dateForApi,
+      );
+
+      if (routes.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No routes found for selected date')),
+          );
+        }
+        return;
+      }
+
+      // Filter routes with live location (check both hasLiveLocation and isLocationSharing)
+      final routesWithLiveLocation = routes.where((r) => 
+        (r['hasLiveLocation'] == true || r['isLocationSharing'] == true) && 
+        r['busId'] != null
+      ).toList();
+
+      if (routesWithLiveLocation.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No buses with live location available')),
+          );
+        }
+        return;
+      }
+
+      // Show route selection dialog
+      final selectedRoute = await showDialog<Map<String, dynamic>>(
+        context: context,
+        builder: (context) => _RouteSelectionDialog(
+          routes: routesWithLiveLocation,
+        ),
+      );
+
+      if (selectedRoute != null) {
+        setState(() {
+          _selectedRoute = selectedRoute;
+          _busId = selectedRoute['busId']?.toString();
+          _routeOrigin = _cityCoordinates[_selectedFrom];
+          _routeDestination = _cityCoordinates[_selectedTo];
+        });
+
+        // Draw route polyline with intermediate points for smoother curve
+        if (_routeOrigin != null && _routeDestination != null) {
+          _routePolyline = _generateRoutePath(_routeOrigin!, _routeDestination!);
+        }
+
+        // Start fetching bus location
+        _startFetchingBusLocation();
+
+        // Fit bounds to show both origin, destination, and current positions
+        _fitMapToRoute();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error searching routes: $e')),
+        );
+      }
+    }
+  }
+
+  void _startFetchingBusLocation() {
+    _busLocationTimer?.cancel();
+    _fetchBusLocation();
+    _busLocationTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      _fetchBusLocation();
+    });
+  }
+
+  Future<void> _fetchBusLocation() async {
+    if (_busId == null) return;
+
+    try {
+      final uri = Uri.parse("$baseUrl/bus/$_busId");
+      final response = await http.get(uri).timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        
+        // Handle case where location sharing is disabled
+        if (data['location'] == null) {
+          debugPrint('Bus location sharing is disabled');
+          return;
+        }
+        
+        if (data['location'] is Map && 
+            data['location']['lat'] != null && 
+            data['location']['lng'] != null) {
+          final lat = (data['location']['lat'] as num).toDouble();
+          final lng = (data['location']['lng'] as num).toDouble();
+          
+          // Validate coordinates are in Sri Lanka
+          if (lat >= 5.9 && lat <= 10.0 && lng >= 79.6 && lng <= 82.0) {
+            setState(() {
+              _busLocation = LatLng(lat, lng);
+            });
+
+            // Update bus marker
+            _markerMap[busMarkerId] = Marker(
+              markerId: const MarkerId(busMarkerId),
+              position: _busLocation!,
+              infoWindow: InfoWindow(
+                title: _selectedRoute?['busName'] ?? 'Bus ${_selectedRoute?['busNumber'] ?? _busId}',
+                snippet: '${_selectedFrom} → ${_selectedTo}',
+              ),
+              icon: BitmapDescriptor.defaultMarkerWithHue(
+                BitmapDescriptor.hueBlue,
+              ),
+            );
+
+            if (mounted) {
+              setState(() {});
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching bus location: $e');
+    }
+  }
+
+  void _fitMapToRoute() {
+    if (_mapController == null) return;
+
+    final positions = <LatLng>[];
+    if (_currentPosition != null) positions.add(_currentPosition!);
+    if (_routeOrigin != null) positions.add(_routeOrigin!);
+    if (_routeDestination != null) positions.add(_routeDestination!);
+    if (_busLocation != null) positions.add(_busLocation!);
+
+    if (positions.isEmpty) return;
+
+    double minLat = positions.first.latitude;
+    double maxLat = positions.first.latitude;
+    double minLng = positions.first.longitude;
+    double maxLng = positions.first.longitude;
+
+    for (final pos in positions) {
+      minLat = min(minLat, pos.latitude);
+      maxLat = max(maxLat, pos.latitude);
+      minLng = min(minLng, pos.longitude);
+      maxLng = max(maxLng, pos.longitude);
+    }
+
+    final bounds = LatLngBounds(
+      southwest: LatLng(minLat - 0.1, minLng - 0.1),
+      northeast: LatLng(maxLat + 0.1, maxLng + 0.1),
+    );
+
+    _mapController?.animateCamera(
+      CameraUpdate.newLatLngBounds(bounds, 100),
+    );
+  }
+
   // ---------------- MAP ----------------
   void _onMapCreated(GoogleMapController controller) {
     _mapController = controller;
