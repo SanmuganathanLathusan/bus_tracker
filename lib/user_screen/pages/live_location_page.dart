@@ -832,6 +832,286 @@ class _LiveLocationPageState extends State<LiveLocationPage>
                 ),
               ],
             ),
+            if (_busLocation != null) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(Icons.directions_bus, color: Colors.blue, size: 25),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Bus: ${_busLocation!.latitude.toStringAsFixed(5)}, ${_busLocation!.longitude.toStringAsFixed(5)}',
+                      style: GoogleFonts.roboto(
+                        fontSize: 14,
+                        color: Colors.blue[700],
+                      ),
+                    ),
+                  ),
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: const BoxDecoration(
+                      color: Colors.green,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Live',
+                    style: GoogleFonts.roboto(
+                      fontSize: 12,
+                      color: Colors.green,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Route Search Bottom Sheet
+class _RouteSearchBottomSheet extends StatefulWidget {
+  final String? initialFrom;
+  final String? initialTo;
+  final DateTime initialDate;
+  final List<String> cities;
+
+  const _RouteSearchBottomSheet({
+    this.initialFrom,
+    this.initialTo,
+    required this.initialDate,
+    required this.cities,
+  });
+
+  @override
+  State<_RouteSearchBottomSheet> createState() => _RouteSearchBottomSheetState();
+}
+
+class _RouteSearchBottomSheetState extends State<_RouteSearchBottomSheet> {
+  late String _from;
+  late String _to;
+  late DateTime _selectedDate;
+
+  @override
+  void initState() {
+    super.initState();
+    _from = widget.initialFrom ?? widget.cities.first;
+    _to = widget.initialTo ?? widget.cities[1];
+    _selectedDate = widget.initialDate;
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked != null) setState(() => _selectedDate = picked);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+        top: 20,
+        left: 20,
+        right: 20,
+      ),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text(
+                'Search Route',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('From'),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      value: _from,
+                      items: widget.cities
+                          .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                          .toList(),
+                      onChanged: (v) => setState(() => _from = v!),
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              IconButton(
+                icon: const Icon(Icons.swap_horiz),
+                onPressed: () {
+                  setState(() {
+                    final temp = _from;
+                    _from = _to;
+                    _to = temp;
+                  });
+                },
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('To'),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      value: _to,
+                      items: widget.cities
+                          .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                          .toList(),
+                      onChanged: (v) => setState(() => _to = v!),
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          InkWell(
+            onTap: _pickDate,
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.calendar_today),
+                  const SizedBox(width: 12),
+                  Text(DateFormat('dd MMM yyyy').format(_selectedDate)),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context, {
+                  'from': _from,
+                  'to': _to,
+                  'date': _selectedDate,
+                });
+              },
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                backgroundColor: const Color(0xFF0C2442),
+              ),
+              child: const Text('Search Routes'),
+            ),
+          ),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+}
+
+// Route Selection Dialog
+class _RouteSelectionDialog extends StatelessWidget {
+  final List<Map<String, dynamic>> routes;
+
+  const _RouteSelectionDialog({required this.routes});
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      child: Container(
+        constraints: const BoxConstraints(maxHeight: 500),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  const Text(
+                    'Select Route',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: routes.length,
+                itemBuilder: (context, index) {
+                  final route = routes[index];
+                  return ListTile(
+                    leading: const Icon(Icons.directions_bus, color: Colors.blue),
+                    title: Text(
+                      '${route['start']} → ${route['destination']}',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (route['busName'] != null)
+                          Text('Bus: ${route['busName']}'),
+                        if (route['scheduledTime'] != null)
+                          Text('Time: ${route['scheduledTime']}'),
+                        if (route['driverName'] != null)
+                          Text('Driver: ${route['driverName']}'),
+                      ],
+                    ),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () => Navigator.pop(context, route),
+                  );
+                },
+              ),
+            ),
           ],
         ),
       ),
