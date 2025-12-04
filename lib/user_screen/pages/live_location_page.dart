@@ -104,8 +104,9 @@ class _LiveLocationPageState extends State<LiveLocationPage>
   ];
 
   // Route info
-  final LatLng origin = const LatLng(6.9271, 79.8612); // Colombo
-  final LatLng destination = const LatLng(8.5550, 80.9980); // Mannar
+  LatLng? _routeOrigin;
+  LatLng? _routeDestination;
+  List<LatLng> _routePolyline = [];
   final double estimatedSpeedKmH = 50; // average bus speed
 
   // Tunables (safe defaults)
@@ -116,16 +117,12 @@ class _LiveLocationPageState extends State<LiveLocationPage>
   static const Duration cameraMinInterval = Duration(seconds: 10);
   static const int locationDistanceFilterMeters = 30;
   static const String userMarkerId = 'user_location';
-
-  // Precomputed travel time (route distances don't change)
-  late final String travelTime;
+  static const String busMarkerId = 'selected_bus_location';
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-
-    travelTime = _estimateTravelTime(origin, destination);
 
     _startBatchTimer();
     _initSocket();
@@ -138,6 +135,7 @@ class _LiveLocationPageState extends State<LiveLocationPage>
     _batchTimer?.cancel();
     _cameraTimer?.cancel();
     _positionStream?.cancel();
+    _busLocationTimer?.cancel();
     _mapController?.dispose();
     _disconnectSocket();
     super.dispose();
@@ -180,7 +178,7 @@ class _LiveLocationPageState extends State<LiveLocationPage>
       // Collect but do not setState here
       _socket!.on('busLocations', (data) {
         if (data is Map) {
-          (data as Map).forEach((key, value) {
+          data.forEach((key, value) {
             try {
               final id = key.toString();
               if (value is Map &&
