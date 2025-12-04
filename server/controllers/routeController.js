@@ -173,10 +173,23 @@ exports.searchRoutes = async (req, res) => {
         busName: routeObj.busName || busData.busName || '',
         busType: busData.busType || 'standard',
         totalSeats: routeObj.totalSeats || busData.totalSeats || 40,
+        assignmentId: null,
+        hasLiveLocation: false,
+        liveLocation: null,
       };
     });
 
-    res.json(routesWithAvailability);
+    // Combine schedules with assignments and routes without assignments
+    const allResults = [...schedulesWithAssignments, ...routesWithAvailability];
+
+    // Sort by scheduled time or departure time
+    allResults.sort((a, b) => {
+      const timeA = a.scheduledTime || a.departure || '';
+      const timeB = b.scheduledTime || b.departure || '';
+      return timeA.localeCompare(timeB);
+    });
+
+    res.json(allResults);
   } catch (error) {
     console.error("Search routes error:", error);
     res.status(500).json({ error: "Failed to search routes" });
