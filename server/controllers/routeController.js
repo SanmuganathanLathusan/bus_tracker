@@ -1,6 +1,7 @@
 const Route = require("../models/Route");
 const Bus = require("../models/Bus");
 const Reservation = require("../models/Reservation");
+const Assignment = require("../models/Assignment");
 
 // SEARCH ROUTES
 exports.searchRoutes = async (req, res) => {
@@ -13,6 +14,7 @@ exports.searchRoutes = async (req, res) => {
 
     const searchDate = new Date(date);
     searchDate.setHours(0, 0, 0, 0);
+    const nextDay = new Date(searchDate.getTime() + 24 * 60 * 60 * 1000);
 
     // Find routes matching start and destination
     const routes = await Route.find({
@@ -23,21 +25,123 @@ exports.searchRoutes = async (req, res) => {
     .populate("busId", "busNumber busName totalSeats busType")
     .select("-__v");
 
+    // Get assignments for these routes on the searched date
+    const routeIds = routes.map(r => r._id);
+    const assignments = await Assignment.find({
+      routeId: { $in: routeIds },
+      scheduledDate: {
+        $gte: searchDate,
+        $lt: nextDay,
+      },
+      status: { $in: ["pending", "accepted"] }, // Only show active assignments
+    })
+    .populate("routeId", "start destination departure arrival price priceDeluxe priceLuxury distance routeNumber")
+    .populate("busId", "busNumber busName totalSeats busType isLocationSharing currentLocation")
+    .populate("driverId", "userName")
+    .select("-__v");
+
     // Get booked seats for the date
     const reservations = await Reservation.find({
       date: {
         $gte: searchDate,
-        $lt: new Date(searchDate.getTime() + 24 * 60 * 60 * 1000),
+        $lt: nextDay,
       },
       status: { $in: ["reserved", "paid"] },
     });
 
-    // Map routes with booked seats
-    const routesWithAvailability = routes.map(route => {
-      const routeReservations = reservations.filter(r => r.routeId.toString() === route._id.toString());
+    // Build results from assignments (schedules)
+    const schedulesWithAssignments = assignments.map(assignment => {
+      const assignmentObj = assignment.toObject();
+      const routeData = assignmentObj.routeId || {};
+      const busData = assignmentObj.busId || {};
+      const driverData = assignmentObj.driverId || {};
+
+      // Get booked seats for this route on this date
+      const routeReservations = reservations.filter(r => 
+        r.routeId && r.routeId.toString() === routeData._id.toString()
+      );
       const bookedSeats = [];
       routeReservations.forEach(res => {
-        bookedSeats.push(...res.seats);
+        if (res.seats && Array.isArray(res.seats)) {
+          bookedSeats.push(...res.seats);
+        }
+      });
+
+      // Determine price based on bus type
+      let routePrice = routeData.price || 0;
+      if (busData.busType === "deluxe" && routeData.priceDeluxe) {
+        routePrice = routeData.priceDeluxe;
+      } else if (busData.busType === "luxury" && routeData.priceLuxury) {
+        routePrice = routeData.priceLuxury;
+      }
+
+      // Check if location is being shared
+      const hasLiveLocation = busData.isLocationSharing && 
+                              busData.currentLocation && 
+                              busData.currentLocation.lat && 
+                              busData.currentLocation.lng;
+
+      return {
+        // Route information
+        _id: routeData._id || assignment.routeId,
+        routeId: routeData._id || assignment.routeId,
+        routeNumber: routeData.routeNumber || `R${(routeData._id || assignment.routeId).toString().substring(0, 6)}`,
+        start: routeData.start || '',
+        destination: routeData.destination || '',
+        departure: routeData.departure || assignment.scheduledTime,
+        arrival: routeData.arrival || '',
+        duration: routeData.duration || null,
+        distance: routeData.distance || null,
+        
+        // Pricing
+        price: routePrice,
+        priceDeluxe: routeData.priceDeluxe || null,
+        priceLuxury: routeData.priceLuxury || null,
+        
+        // Bus information
+        busId: busData._id || assignment.busId,
+        busNumber: busData.busNumber || '',
+        busName: busData.busName || routeData.busName || '',
+        busType: busData.busType || 'standard',
+        totalSeats: busData.totalSeats || routeData.totalSeats || 40,
+        
+        // Assignment/Schedule information
+        assignmentId: assignment._id.toString(),
+        scheduledDate: assignment.scheduledDate,
+        scheduledTime: assignment.scheduledTime,
+        assignmentStatus: assignment.status,
+        driverId: assignment.driverId ? assignment.driverId.toString() : null,
+        driverName: driverData.userName || null,
+        
+        // Live location data
+        hasLiveLocation: hasLiveLocation,
+        liveLocation: hasLiveLocation ? {
+          lat: busData.currentLocation.lat,
+          lng: busData.currentLocation.lng,
+          updatedAt: busData.currentLocation.updatedAt,
+        } : null,
+        
+        // Seat availability
+        bookedSeats: [...new Set(bookedSeats)],
+        availableSeats: (busData.totalSeats || routeData.totalSeats || 40) - bookedSeats.length,
+      };
+    });
+
+    // Also include routes without assignments (if any)
+    const routesWithoutAssignments = routes.filter(route => {
+      const hasAssignment = assignments.some(a => a.routeId.toString() === route._id.toString());
+      return !hasAssignment;
+    });
+
+    const routesWithAvailability = routesWithoutAssignments.map(route => {
+      const routeReservations = reservations.filter(r => 
+        r.routeId && r.routeId.toString() === route._id.toString()
+      );
+      const bookedSeats = [];
+      routeReservations.forEach(res => {
+        if (res.seats && Array.isArray(res.seats)) {
+          bookedSeats.push(...res.seats);
+        }
       });
 
       const routeObj = route.toObject();
@@ -53,11 +157,11 @@ exports.searchRoutes = async (req, res) => {
 
       return {
         ...routeObj,
+        routeId: route._id,
         routeNumber: routeObj.routeNumber || `R${route._id.toString().substring(0, 6)}`,
         distance: routeObj.distance || null,
         bookedSeats: [...new Set(bookedSeats)],
         availableSeats: (routeObj.totalSeats || busData.totalSeats || 40) - bookedSeats.length,
-        // Ensure consistent field names
         start: routeObj.start,
         destination: routeObj.destination,
         departure: routeObj.departure,
@@ -69,10 +173,23 @@ exports.searchRoutes = async (req, res) => {
         busName: routeObj.busName || busData.busName || '',
         busType: busData.busType || 'standard',
         totalSeats: routeObj.totalSeats || busData.totalSeats || 40,
+        assignmentId: null,
+        hasLiveLocation: false,
+        liveLocation: null,
       };
     });
 
-    res.json(routesWithAvailability);
+    // Combine schedules with assignments and routes without assignments
+    const allResults = [...schedulesWithAssignments, ...routesWithAvailability];
+
+    // Sort by scheduled time or departure time
+    allResults.sort((a, b) => {
+      const timeA = a.scheduledTime || a.departure || '';
+      const timeB = b.scheduledTime || b.departure || '';
+      return timeA.localeCompare(timeB);
+    });
+
+    res.json(allResults);
   } catch (error) {
     console.error("Search routes error:", error);
     res.status(500).json({ error: "Failed to search routes" });
