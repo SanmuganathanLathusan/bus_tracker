@@ -1,6 +1,7 @@
 const Route = require("../models/Route");
 const Bus = require("../models/Bus");
 const Reservation = require("../models/Reservation");
+const Assignment = require("../models/Assignment");
 
 // SEARCH ROUTES
 exports.searchRoutes = async (req, res) => {
