@@ -25,6 +25,21 @@ exports.searchRoutes = async (req, res) => {
     .populate("busId", "busNumber busName totalSeats busType")
     .select("-__v");
 
+    // Get assignments for these routes on the searched date
+    const routeIds = routes.map(r => r._id);
+    const assignments = await Assignment.find({
+      routeId: { $in: routeIds },
+      scheduledDate: {
+        $gte: searchDate,
+        $lt: nextDay,
+      },
+      status: { $in: ["pending", "accepted"] }, // Only show active assignments
+    })
+    .populate("routeId", "start destination departure arrival price priceDeluxe priceLuxury distance routeNumber")
+    .populate("busId", "busNumber busName totalSeats busType isLocationSharing currentLocation")
+    .populate("driverId", "userName")
+    .select("-__v");
+
     // Get booked seats for the date
     const reservations = await Reservation.find({
       date: {
