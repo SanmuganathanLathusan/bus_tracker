@@ -663,6 +663,13 @@ class _LiveLocationPageState extends State<LiveLocationPage>
         ),
         backgroundColor: const Color(0xFF0C2442),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: _showRouteSearchDialog,
+            tooltip: 'Search Route',
+          ),
+        ],
       ),
       body: Stack(
         children: [
@@ -670,15 +677,16 @@ class _LiveLocationPageState extends State<LiveLocationPage>
               ? const Center(child: CircularProgressIndicator())
               : GoogleMap(
                   initialCameraPosition: CameraPosition(
-                    target: _currentPosition ?? origin,
+                    target: _currentPosition ?? const LatLng(6.9271, 79.8612),
                     zoom: 6,
                   ),
                   markers: _createMarkerSet(),
+                  polylines: _createPolylines(),
                   myLocationEnabled: true,
                   myLocationButtonEnabled: true,
                   onMapCreated: _onMapCreated,
                   mapToolbarEnabled: false,
-                  zoomControlsEnabled: false,
+                  zoomControlsEnabled: true,
                   trafficEnabled: false,
                   buildingsEnabled: false,
                   indoorViewEnabled: false,
@@ -687,16 +695,67 @@ class _LiveLocationPageState extends State<LiveLocationPage>
             bottom: 20,
             left: 20,
             right: 20,
-            child: _buildInfoCard(travelTime),
+            child: _buildInfoCard(),
           ),
         ],
       ),
     );
   }
 
-  Set<Marker> _createMarkerSet() => Set<Marker>.of(_markerMap.values);
+  Set<Marker> _createMarkerSet() {
+    final markers = Set<Marker>.of(_markerMap.values);
+    
+    // Add origin marker if route is selected
+    if (_routeOrigin != null) {
+      markers.add(
+        Marker(
+          markerId: const MarkerId('route_origin'),
+          position: _routeOrigin!,
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+          infoWindow: InfoWindow(title: 'Origin: $_selectedFrom'),
+        ),
+      );
+    }
+    
+    // Add destination marker if route is selected
+    if (_routeDestination != null) {
+      markers.add(
+        Marker(
+          markerId: const MarkerId('route_destination'),
+          position: _routeDestination!,
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+          infoWindow: InfoWindow(title: 'Destination: $_selectedTo'),
+        ),
+      );
+    }
+    
+    return markers;
+  }
 
-  Widget _buildInfoCard(String travelTime) {
+  Set<Polyline> _createPolylines() {
+    final polylines = <Polyline>{};
+    
+    // Route polyline (origin to destination)
+    if (_routePolyline.length >= 2) {
+      polylines.add(
+        Polyline(
+          polylineId: const PolylineId('route_path'),
+          points: _routePolyline,
+          color: Colors.blue,
+          width: 5,
+          patterns: [],
+        ),
+      );
+    }
+    
+    return polylines;
+  }
+
+  Widget _buildInfoCard() {
+    final travelTime = _routeOrigin != null && _routeDestination != null
+        ? _estimateTravelTime(_routeOrigin!, _routeDestination!)
+        : '';
+
     return Card(
       elevation: 8,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -705,30 +764,46 @@ class _LiveLocationPageState extends State<LiveLocationPage>
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                const Icon(Icons.place, color: Colors.red, size: 30),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    "Route: Colombo → Mannar",
-                    style: GoogleFonts.roboto(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
+            if (_selectedRoute != null) ...[
+              Row(
+                children: [
+                  const Icon(Icons.route, color: Colors.blue, size: 24),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      "$_selectedFrom → $_selectedTo",
+                      style: GoogleFonts.roboto(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
                     ),
                   ),
-                ),
+                  if (travelTime.isNotEmpty)
+                    Text(
+                      travelTime,
+                      style: GoogleFonts.roboto(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                ],
+              ),
+              if (_selectedRoute?['busName'] != null) ...[
+                const SizedBox(height: 4),
                 Text(
-                  travelTime,
+                  'Bus: ${_selectedRoute!['busName']} ${_selectedRoute?['busNumber'] ?? ''}',
                   style: GoogleFonts.roboto(
-                    fontWeight: FontWeight.w500,
-                    fontSize: 14,
+                    fontSize: 12,
+                    color: Colors.grey[600],
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 8),
+              const SizedBox(height: 8),
+              Divider(color: Colors.grey[300]),
+            ],
             Row(
               children: [
                 const Icon(Icons.my_location, color: Colors.orange, size: 25),
@@ -736,9 +811,8 @@ class _LiveLocationPageState extends State<LiveLocationPage>
                 Expanded(
                   child: Text(
                     _currentPosition != null
-                        ? 'Lat: ${_currentPosition!.latitude.toStringAsFixed(5)}, '
-                              'Lng: ${_currentPosition!.longitude.toStringAsFixed(5)}'
-                        : 'Fetching location...',
+                        ? 'You: ${_currentPosition!.latitude.toStringAsFixed(5)}, ${_currentPosition!.longitude.toStringAsFixed(5)}'
+                        : 'Fetching your location...',
                     style: GoogleFonts.roboto(fontSize: 14),
                   ),
                 ),
