@@ -11,15 +11,15 @@ class ReservationService {
     print('🔐 Token retrieved: ${token != null ? "EXISTS" : "NULL"}');
     if (token != null) {
       print('🔐 Token length: ${token.length}');
-      print('🔐 Token preview: ${token.substring(0, token.length > 20 ? 20 : token.length)}...');
+      print(
+        '🔐 Token preview: ${token.substring(0, token.length > 20 ? 20 : token.length)}...',
+      );
     }
     return token;
   }
 
   Map<String, String> _defaultHeaders([String? token]) {
-    final headers = <String, String>{
-      "Content-Type": "application/json",
-    };
+    final headers = <String, String>{"Content-Type": "application/json"};
     if (token != null) {
       headers["Authorization"] = "Bearer $token";
       print('🔐 Authorization header set: Bearer ${token.substring(0, 20)}...');
@@ -33,7 +33,7 @@ class ReservationService {
   dynamic _handleResponse(http.Response response) {
     print('📥 Response Status: ${response.statusCode}');
     print('📥 Response Body: ${response.body}');
-    
+
     try {
       final body = response.body.isNotEmpty ? jsonDecode(response.body) : null;
       if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -58,13 +58,17 @@ class ReservationService {
   }) async {
     try {
       print('🔵 Searching routes: $start → $destination on $date');
-      final uri = Uri.parse("$baseUrl/routes/search").replace(queryParameters: {
-        'start': start,
-        'destination': destination,
-        'date': date,
-      });
+      final uri = Uri.parse("$baseUrl/routes/search").replace(
+        queryParameters: {
+          'start': start,
+          'destination': destination,
+          'date': date,
+        },
+      );
 
-      final response = await http.get(uri, headers: _defaultHeaders()).timeout(_timeout);
+      final response = await http
+          .get(uri, headers: _defaultHeaders())
+          .timeout(_timeout);
       final data = _handleResponse(response);
       if (data is List) return List<Map<String, dynamic>>.from(data);
       return [];
@@ -80,12 +84,13 @@ class ReservationService {
       final token = await _getToken();
       if (token == null) throw Exception('Not authenticated');
 
-      final uri = Uri.parse("$baseUrl/reservations/booked-seats").replace(queryParameters: {
-        'routeId': routeId,
-        'date': date,
-      });
+      final uri = Uri.parse(
+        "$baseUrl/reservations/booked-seats",
+      ).replace(queryParameters: {'routeId': routeId, 'date': date});
 
-      final response = await http.get(uri, headers: _defaultHeaders(token)).timeout(_timeout);
+      final response = await http
+          .get(uri, headers: _defaultHeaders(token))
+          .timeout(_timeout);
       final data = _handleResponse(response);
       if (data is Map && data['bookedSeats'] is List) {
         return List<int>.from(data['bookedSeats']);
@@ -107,7 +112,7 @@ class ReservationService {
       print('═══════════════════════════════════════');
       print('🔵 CREATE RESERVATION DEBUG');
       print('═══════════════════════════════════════');
-      
+
       final token = await _getToken();
       if (token == null || token.isEmpty) {
         print('❌ CRITICAL: Token is null or empty!');
@@ -115,20 +120,28 @@ class ReservationService {
       }
 
       print('✅ Token obtained successfully');
-      print('🔵 Creating reservation: route=$routeId, seats=$seats, date=$date');
-      
+      print(
+        '🔵 Creating reservation: route=$routeId, seats=$seats, date=$date',
+      );
+
       final uri = Uri.parse("$baseUrl/reservations");
       print('📍 URL: $uri');
-      
-      final body = jsonEncode({"routeId": routeId, "seats": seats, "date": date});
+
+      final body = jsonEncode({
+        "routeId": routeId,
+        "seats": seats,
+        "date": date,
+      });
       print('📦 Body: $body');
-      
+
       final headers = _defaultHeaders(token);
       print('📋 Headers: $headers');
 
       print('📤 Sending POST request...');
-      final response = await http.post(uri, headers: headers, body: body).timeout(_timeout);
-      
+      final response = await http
+          .post(uri, headers: headers, body: body)
+          .timeout(_timeout);
+
       final data = _handleResponse(response);
       if (data is Map<String, dynamic>) {
         print('✅ Reservation created successfully');
@@ -153,17 +166,17 @@ class ReservationService {
       print('═══════════════════════════════════════');
       print('🔵 CONFIRM RESERVATION DEBUG');
       print('═══════════════════════════════════════');
-      
+
       final token = await _getToken();
       if (token == null) throw Exception('Not authenticated');
 
       print('✅ Token obtained successfully');
       print('🔵 Confirming reservation: $reservationId with $paymentMethod');
       print('💰 Amount: $amount');
-      
+
       final uri = Uri.parse("$baseUrl/reservations/confirm");
       print('📍 URL: $uri');
-      
+
       final bodyData = {
         "reservationId": reservationId,
         "paymentMethod": paymentMethod,
@@ -171,13 +184,15 @@ class ReservationService {
       };
       final body = jsonEncode(bodyData);
       print('📦 Body: $body');
-      
+
       final headers = _defaultHeaders(token);
       print('📋 Headers: $headers');
 
       print('📤 Sending POST request...');
-      final response = await http.post(uri, headers: headers, body: body).timeout(_timeout);
-      
+      final response = await http
+          .post(uri, headers: headers, body: body)
+          .timeout(_timeout);
+
       final data = _handleResponse(response);
       if (data is Map<String, dynamic>) {
         print('✅ Reservation confirmed successfully');
@@ -203,12 +218,19 @@ class ReservationService {
 
       print('🔵 Confirming reservation with card: $reservationId');
       final uri = Uri.parse("$baseUrl/reservations/confirm");
-      final body = jsonEncode({"reservationId": reservationId, "cardDetails": cardDetails});
+      final body = jsonEncode({
+        "reservationId": reservationId,
+        "cardDetails": cardDetails,
+      });
 
-      final response = await http.post(uri, headers: _defaultHeaders(token), body: body).timeout(_timeout);
+      final response = await http
+          .post(uri, headers: _defaultHeaders(token), body: body)
+          .timeout(_timeout);
       final data = _handleResponse(response);
       if (data is Map<String, dynamic>) return data;
-      throw Exception('Unexpected response shape on confirmReservationWithCard');
+      throw Exception(
+        'Unexpected response shape on confirmReservationWithCard',
+      );
     } catch (e) {
       print('❌ Confirm reservation error: $e');
       rethrow;
@@ -222,7 +244,9 @@ class ReservationService {
       if (token == null) throw Exception('Not authenticated');
 
       final uri = Uri.parse("$baseUrl/reservations/my-reservations");
-      final response = await http.get(uri, headers: _defaultHeaders(token)).timeout(_timeout);
+      final response = await http
+          .get(uri, headers: _defaultHeaders(token))
+          .timeout(_timeout);
       final data = _handleResponse(response);
       if (data is List) return List<Map<String, dynamic>>.from(data);
       return [];
@@ -239,7 +263,9 @@ class ReservationService {
       if (token == null) throw Exception('Not authenticated');
 
       final uri = Uri.parse("$baseUrl/reservations/$id");
-      final response = await http.get(uri, headers: _defaultHeaders(token)).timeout(_timeout);
+      final response = await http
+          .get(uri, headers: _defaultHeaders(token))
+          .timeout(_timeout);
       final data = _handleResponse(response);
       if (data is Map<String, dynamic>) return data;
       throw Exception('Unexpected response shape when fetching reservation');
@@ -256,7 +282,13 @@ class ReservationService {
       if (token == null) throw Exception('Not authenticated');
 
       final uri = Uri.parse("$baseUrl/reservations/validate");
-      final response = await http.post(uri, headers: _defaultHeaders(token), body: jsonEncode({"ticketId": ticketId})).timeout(_timeout);
+      final response = await http
+          .post(
+            uri,
+            headers: _defaultHeaders(token),
+            body: jsonEncode({"ticketId": ticketId}),
+          )
+          .timeout(_timeout);
       final data = _handleResponse(response);
       if (data is Map<String, dynamic>) return data;
       throw Exception('Unexpected response shape when validating ticket');
@@ -273,7 +305,9 @@ class ReservationService {
       if (token == null) throw Exception('Not authenticated');
 
       final uri = Uri.parse("$baseUrl/driver/trip/$tripId/passengers");
-      final response = await http.get(uri, headers: _defaultHeaders(token)).timeout(_timeout);
+      final response = await http
+          .get(uri, headers: _defaultHeaders(token))
+          .timeout(_timeout);
       final data = _handleResponse(response);
       if (data is List) return List<Map<String, dynamic>>.from(data);
       return [];
@@ -293,10 +327,16 @@ class ReservationService {
       if (token == null) throw Exception('Not authenticated');
 
       final uri = Uri.parse("$baseUrl/driver/passenger/status");
-      final response = await http.post(uri, headers: _defaultHeaders(token), body: jsonEncode({
-        "reservationId": reservationId,
-        "status": status,
-      })).timeout(_timeout);
+      final response = await http
+          .post(
+            uri,
+            headers: _defaultHeaders(token),
+            body: jsonEncode({
+              "reservationId": reservationId,
+              "status": status,
+            }),
+          )
+          .timeout(_timeout);
 
       _handleResponse(response); // will throw if non-2xx
     } catch (e) {
@@ -311,7 +351,9 @@ class ReservationService {
       print('🔵 Fetching route prices by type');
       final uri = Uri.parse("$baseUrl/routes/prices");
 
-      final response = await http.get(uri, headers: _defaultHeaders()).timeout(_timeout);
+      final response = await http
+          .get(uri, headers: _defaultHeaders())
+          .timeout(_timeout);
       final data = _handleResponse(response);
       if (data is List) return List<Map<String, dynamic>>.from(data);
       return [];
@@ -327,7 +369,9 @@ class ReservationService {
       print('🔵 Fetching all routes with details');
       final uri = Uri.parse("$baseUrl/routes");
 
-      final response = await http.get(uri, headers: _defaultHeaders()).timeout(_timeout);
+      final response = await http
+          .get(uri, headers: _defaultHeaders())
+          .timeout(_timeout);
       final data = _handleResponse(response);
       if (data is List) return List<Map<String, dynamic>>.from(data);
       return [];
