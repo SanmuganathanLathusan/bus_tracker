@@ -11,15 +11,15 @@ class ReservationService {
     print('🔐 Token retrieved: ${token != null ? "EXISTS" : "NULL"}');
     if (token != null) {
       print('🔐 Token length: ${token.length}');
-      print('🔐 Token preview: ${token.substring(0, token.length > 20 ? 20 : token.length)}...');
+      print(
+        '🔐 Token preview: ${token.substring(0, token.length > 20 ? 20 : token.length)}...',
+      );
     }
     return token;
   }
 
   Map<String, String> _defaultHeaders([String? token]) {
-    final headers = <String, String>{
-      "Content-Type": "application/json",
-    };
+    final headers = <String, String>{"Content-Type": "application/json"};
     if (token != null) {
       headers["Authorization"] = "Bearer $token";
       print('🔐 Authorization header set: Bearer ${token.substring(0, 20)}...');
@@ -33,7 +33,7 @@ class ReservationService {
   dynamic _handleResponse(http.Response response) {
     print('📥 Response Status: ${response.statusCode}');
     print('📥 Response Body: ${response.body}');
-    
+
     try {
       final body = response.body.isNotEmpty ? jsonDecode(response.body) : null;
       if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -58,13 +58,17 @@ class ReservationService {
   }) async {
     try {
       print('🔵 Searching routes: $start → $destination on $date');
-      final uri = Uri.parse("$baseUrl/routes/search").replace(queryParameters: {
-        'start': start,
-        'destination': destination,
-        'date': date,
-      });
+      final uri = Uri.parse("$baseUrl/routes/search").replace(
+        queryParameters: {
+          'start': start,
+          'destination': destination,
+          'date': date,
+        },
+      );
 
-      final response = await http.get(uri, headers: _defaultHeaders()).timeout(_timeout);
+      final response = await http
+          .get(uri, headers: _defaultHeaders())
+          .timeout(_timeout);
       final data = _handleResponse(response);
       if (data is List) return List<Map<String, dynamic>>.from(data);
       return [];
@@ -80,12 +84,13 @@ class ReservationService {
       final token = await _getToken();
       if (token == null) throw Exception('Not authenticated');
 
-      final uri = Uri.parse("$baseUrl/reservations/booked-seats").replace(queryParameters: {
-        'routeId': routeId,
-        'date': date,
-      });
+      final uri = Uri.parse(
+        "$baseUrl/reservations/booked-seats",
+      ).replace(queryParameters: {'routeId': routeId, 'date': date});
 
-      final response = await http.get(uri, headers: _defaultHeaders(token)).timeout(_timeout);
+      final response = await http
+          .get(uri, headers: _defaultHeaders(token))
+          .timeout(_timeout);
       final data = _handleResponse(response);
       if (data is Map && data['bookedSeats'] is List) {
         return List<int>.from(data['bookedSeats']);
@@ -107,7 +112,7 @@ class ReservationService {
       print('═══════════════════════════════════════');
       print('🔵 CREATE RESERVATION DEBUG');
       print('═══════════════════════════════════════');
-      
+
       final token = await _getToken();
       if (token == null || token.isEmpty) {
         print('❌ CRITICAL: Token is null or empty!');
@@ -115,8 +120,10 @@ class ReservationService {
       }
 
       print('✅ Token obtained successfully');
-      print('🔵 Creating reservation: route=$routeId, seats=$seats, date=$date');
-      
+      print(
+        '🔵 Creating reservation: route=$routeId, seats=$seats, date=$date',
+      );
+
       final uri = Uri.parse("$baseUrl/reservations");
       print('📍 URL: $uri');
       
