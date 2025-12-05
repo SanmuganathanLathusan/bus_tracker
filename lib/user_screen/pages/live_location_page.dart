@@ -13,7 +13,6 @@ import 'package:waygo/services/reservation_service.dart';
 import 'package:http/http.dart' as http;
 
 /// Top-level isolate worker for accurate distance (km) using Haversine.
-/// compute() requires a top-level or static function and only serializable args.
 double _haversineWorker(Map<String, double> args) {
   const R = 6371.0; // km
   final lat1 = args['lat1']!;
@@ -110,9 +109,7 @@ class _LiveLocationPageState extends State<LiveLocationPage>
   final double estimatedSpeedKmH = 50; // average bus speed
 
   // Tunables (safe defaults)
-  static const Duration uiBatchDuration = Duration(
-    seconds: 3,
-  ); // reduced GPU churn
+  static const Duration uiBatchDuration = Duration(seconds: 3);
   static const Duration userUpdateMinInterval = Duration(seconds: 3);
   static const Duration cameraMinInterval = Duration(seconds: 10);
   static const int locationDistanceFilterMeters = 30;
@@ -124,13 +121,19 @@ class _LiveLocationPageState extends State<LiveLocationPage>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    _startBatchTimer();
-    _initSocket();
-    _determinePositionAndStream();
+    // Delay initialization slightly to ensure widget is fully mounted
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_isDisposed && mounted) {
+        _startBatchTimer();
+        _initSocket();
+        _determinePositionAndStream();
+      }
+    });
   }
 
   @override
   void dispose() {
+    _isDisposed = true;
     WidgetsBinding.instance.removeObserver(this);
     _batchTimer?.cancel();
     _cameraTimer?.cancel();
@@ -144,39 +147,66 @@ class _LiveLocationPageState extends State<LiveLocationPage>
   // Lifecycle: pause/resume to save CPU & battery
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (_isDisposed) return;
+
     if (state == AppLifecycleState.paused) {
       _positionStream?.pause();
       try {
         _socket?.disconnect();
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('Error disconnecting socket: $e');
+      }
     } else if (state == AppLifecycleState.resumed) {
       _positionStream?.resume();
-      if (_socket != null && _socket!.disconnected) _socket!.connect();
+      if (_socket != null && _socket!.disconnected) {
+        try {
+          _socket!.connect();
+        } catch (e) {
+          debugPrint('Error reconnecting socket: $e');
+        }
+      }
     }
   }
 
   // ---------------- SOCKET ----------------
   void _initSocket() {
+    if (_isDisposed) return;
+
     try {
       _socket = IO.io(
         'http://10.0.2.2:5000',
         IO.OptionBuilder()
-            .setTransports(['websocket'])
-            .enableAutoConnect()
+            .setTransports(['websocket', 'polling']) // Add polling as fallback
+            .disableAutoConnect() // Disable auto-connect to handle manually
             .setReconnectionAttempts(5)
             .setReconnectionDelay(2000)
+            .setTimeout(10000)
             .build(),
       );
 
-      _socket!.onConnect((_) => debugPrint('✅ Socket connected'));
+      _socket!.onConnect((_) {
+        debugPrint('✅ Socket connected');
+        // Request initial bus locations
+        _socket?.emit('requestBusLocations');
+      });
+
       _socket!.onDisconnect((_) => debugPrint('❌ Socket disconnected'));
-      _socket!.onConnectError(
-        (data) => debugPrint('Socket connect error: $data'),
-      );
-      _socket!.onError((data) => debugPrint('Socket error: $data'));
+
+      _socket!.onConnectError((data) {
+        debugPrint('⚠️ Socket connect error: $data');
+        // Don't show error to user, socket is optional feature
+      });
+
+      _socket!.onError((data) {
+        debugPrint('⚠️ Socket error: $data');
+      });
 
       // Collect but do not setState here
       _socket!.on('busLocations', (data) {
+        if (_isDisposed) return;
+
+        debugPrint('📍 Received bus locations: $data');
+
         if (data is Map) {
           data.forEach((key, value) {
             try {
@@ -188,7 +218,9 @@ class _LiveLocationPageState extends State<LiveLocationPage>
                 final lng = (value['lng'] as num).toDouble();
                 _pendingBusUpdates[id] = LatLng(lat, lng);
               }
-            } catch (_) {}
+            } catch (e) {
+              debugPrint('Error processing bus location: $e');
+            }
           });
         }
       });
