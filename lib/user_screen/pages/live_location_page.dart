@@ -224,42 +224,75 @@ class _LiveLocationPageState extends State<LiveLocationPage>
           });
         }
       });
+
+      _socket!.on('busLocationUpdate', (data) {
+        if (_isDisposed) return;
+
+        debugPrint('📍 Bus location update: $data');
+
+        try {
+          if (data is Map && data['busId'] != null) {
+            final busId = data['busId'].toString();
+            if (data['location'] is Map &&
+                data['location']['lat'] != null &&
+                data['location']['lng'] != null) {
+              final lat = (data['location']['lat'] as num).toDouble();
+              final lng = (data['location']['lng'] as num).toDouble();
+              _pendingBusUpdates[busId] = LatLng(lat, lng);
+            }
+          }
+        } catch (e) {
+          debugPrint('Error processing bus update: $e');
+        }
+      });
+
+      // Connect manually with error handling
+      try {
+        _socket!.connect();
+      } catch (e) {
+        debugPrint('⚠️ Failed to connect socket: $e');
+      }
     } catch (e) {
-      debugPrint('Socket init failed: $e');
+      debugPrint('⚠️ Socket init failed: $e');
+      // Socket is optional, app continues without it
     }
   }
 
   void _disconnectSocket() {
     try {
+      _socket?.off('busLocations');
       _socket?.disconnect();
-      _socket?.destroy();
+      _socket?.dispose();
       _socket = null;
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Error disposing socket: $e');
+    }
   }
 
   // ---------------- BATCH FLUSH ----------------
   void _startBatchTimer() {
-    // Flush less often to relieve GPU / ImageReader
-    _batchTimer = Timer.periodic(
-      uiBatchDuration,
-      (_) => _flushPendingMarkers(),
-    );
+    if (_isDisposed) return;
+
+    _batchTimer = Timer.periodic(uiBatchDuration, (_) {
+      if (!_isDisposed && mounted) {
+        _flushPendingMarkers();
+      }
+    });
   }
 
   Future<void> _flushPendingMarkers() async {
-    if (_pendingBusUpdates.isEmpty) return;
+    if (_isDisposed || !mounted || _pendingBusUpdates.isEmpty) return;
 
-    // Quick cheap degree-based pre-check threshold to avoid trig math often.
-    // degreesThreshold approx -> 0.001 deg ≈ 111m (latitude). This is cheap.
-    const double degreesThreshold = 0.001; // around 100m
+    const double degreesThreshold = 0.001;
 
     final Map<String, Marker> updates = {};
     final List<Future<void>> expensiveCheckFutures = [];
 
     _pendingBusUpdates.forEach((id, newLatLng) {
+      if (_isDisposed) return;
+
       final existing = _markerMap[id];
       if (existing == null) {
-        // new bus -> create marker immediately
         updates[id] = Marker(
           markerId: MarkerId(id),
           position: newLatLng,
@@ -273,9 +306,7 @@ class _LiveLocationPageState extends State<LiveLocationPage>
         final lngDiff = (existing.position.longitude - newLatLng.longitude)
             .abs();
 
-        // If difference > degreesThreshold in either axis we update quickly
         if (latDiff > degreesThreshold || lngDiff > degreesThreshold) {
-          // For larger moves we can update without exact haversine
           updates[id] = Marker(
             markerId: MarkerId(id),
             position: newLatLng,
@@ -285,46 +316,45 @@ class _LiveLocationPageState extends State<LiveLocationPage>
             ),
           );
         } else {
-          // small difference — run accurate distance in isolate and update only if > ~60m
-          final fut = _computeDistanceKm(existing.position, newLatLng).then((
-            km,
-          ) {
-            if (km > 0.06) {
-              updates[id] = Marker(
-                markerId: MarkerId(id),
-                position: newLatLng,
-                infoWindow: InfoWindow(title: 'Bus $id'),
-                icon: BitmapDescriptor.defaultMarkerWithHue(
-                  BitmapDescriptor.hueAzure,
-                ),
-              );
-            }
-          });
+          final fut = _computeDistanceKm(existing.position, newLatLng)
+              .then((km) {
+                if (_isDisposed) return;
+                if (km > 0.06) {
+                  updates[id] = Marker(
+                    markerId: MarkerId(id),
+                    position: newLatLng,
+                    infoWindow: InfoWindow(title: 'Bus $id'),
+                    icon: BitmapDescriptor.defaultMarkerWithHue(
+                      BitmapDescriptor.hueAzure,
+                    ),
+                  );
+                }
+              })
+              .catchError((e) {
+                debugPrint('Error computing distance: $e');
+              });
           expensiveCheckFutures.add(fut);
         }
       }
     });
 
-    // Wait for expensive checks to finish (but they run in isolates)
     if (expensiveCheckFutures.isNotEmpty) {
       await Future.wait(expensiveCheckFutures);
     }
 
-    // If there are no actual updates, just clear pending and return
+    if (_isDisposed || !mounted) return;
+
     if (updates.isEmpty) {
       _pendingBusUpdates.clear();
       return;
     }
 
-    // Apply updates to marker map, clear pending, and update UI once via post frame callback
     _markerMap.addAll(updates);
     _pendingBusUpdates.clear();
 
-    if (!mounted) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      setState(() {}); // single, safe UI refresh
-    });
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   // ---------------- LOCATION (USER) ----------------
