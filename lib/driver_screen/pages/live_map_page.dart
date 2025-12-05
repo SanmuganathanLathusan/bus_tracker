@@ -135,5 +135,68 @@ class _LiveMapPageState extends State<LiveMapPage> {
       }
     });
   }
+  // ============================================================
+  //    API CALL (POST REQUEST) → UPDATE BUS LOCATION
+  // ============================================================
+  Future<void> _sendLocationToServer(LatLng location) async {
+    final url = Uri.parse("$serverUrl/api/location/update");
+
+    try {
+      /// POST request with JSON body
+      final res = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "bus_id": widget.busId,     /// Unique bus ID
+          "latitude": location.latitude,
+          "longitude": location.longitude,
+        }),
+      );
+
+      /// 200 = success, otherwise log error
+      if (res.statusCode != 200) {
+        debugPrint("Server error: ${res.body}");
+      }
+    } catch (e) {
+      debugPrint("Error sending location: $e");
+    }
+  }
+
+  // ============================================================
+  //    CAMERA FOLLOW THE BUS
+  // ============================================================
+  Future<void> _moveCamera(LatLng target) async {
+    /// Wait for Google Map to be created
+    final GoogleMapController mapController = await _controller.future;
+
+    /// Smooth camera animation to updated position
+    mapController.animateCamera(CameraUpdate.newLatLng(target));
+  }
+
+  // ============================================================
+  //    UI SECTION – MAP + BUTTON
+  // ============================================================
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("Live Map - ${widget.busId}"),
+        backgroundColor: const Color.fromARGB(255, 150, 208, 245),
+      ),
+
+      /// Show loading spinner until GPS position is ready
+      body: currentPos == null
+          ? const Center(child: CircularProgressIndicator())
+          : Stack(
+              children: [
+                /// MAIN GOOGLE MAP
+                GoogleMap(
+                  onMapCreated: (controller) =>
+                      _controller.complete(controller),
+
+                  initialCameraPosition: CameraPosition(
+                    target: currentPos!,
+                    zoom: 15.0,
+                  ),
 
 
