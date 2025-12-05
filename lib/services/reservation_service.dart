@@ -327,10 +327,16 @@ class ReservationService {
       if (token == null) throw Exception('Not authenticated');
 
       final uri = Uri.parse("$baseUrl/driver/passenger/status");
-      final response = await http.post(uri, headers: _defaultHeaders(token), body: jsonEncode({
-        "reservationId": reservationId,
-        "status": status,
-      })).timeout(_timeout);
+      final response = await http
+          .post(
+            uri,
+            headers: _defaultHeaders(token),
+            body: jsonEncode({
+              "reservationId": reservationId,
+              "status": status,
+            }),
+          )
+          .timeout(_timeout);
 
       _handleResponse(response); // will throw if non-2xx
     } catch (e) {
@@ -345,7 +351,9 @@ class ReservationService {
       print('🔵 Fetching route prices by type');
       final uri = Uri.parse("$baseUrl/routes/prices");
 
-      final response = await http.get(uri, headers: _defaultHeaders()).timeout(_timeout);
+      final response = await http
+          .get(uri, headers: _defaultHeaders())
+          .timeout(_timeout);
       final data = _handleResponse(response);
       if (data is List) return List<Map<String, dynamic>>.from(data);
       return [];
@@ -361,7 +369,9 @@ class ReservationService {
       print('🔵 Fetching all routes with details');
       final uri = Uri.parse("$baseUrl/routes");
 
-      final response = await http.get(uri, headers: _defaultHeaders()).timeout(_timeout);
+      final response = await http
+          .get(uri, headers: _defaultHeaders())
+          .timeout(_timeout);
       final data = _handleResponse(response);
       if (data is List) return List<Map<String, dynamic>>.from(data);
       return [];
