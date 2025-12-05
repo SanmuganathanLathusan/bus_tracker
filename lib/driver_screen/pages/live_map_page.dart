@@ -89,4 +89,51 @@ class _LiveMapPageState extends State<LiveMapPage> {
 
     setState(() => currentPos = LatLng(pos.latitude, pos.longitude));
   }
+  // ============================================================
+  //    START / STOP SHARING BUTTON
+  // ============================================================
+  void _toggleSharing() {
+    /// If already sharing → stop timer
+    if (isSharing) {
+      locationTimer?.cancel();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Stopped sharing location")),
+      );
+    } else {
+      /// If not sharing → start sending location
+      _startSendingLocation();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Started sharing location")),
+      );
+    }
+
+    setState(() => isSharing = !isSharing);
+  }
+
+  // ============================================================
+  //    SEND LOCATION EVERY 5 SECONDS TO BACKEND
+  // ============================================================
+  void _startSendingLocation() {
+    /// Timer triggers every 5 seconds
+    locationTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
+      try {
+        /// Get new GPS coordinates
+        Position pos = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.best,
+        );
+
+        currentPos = LatLng(pos.latitude, pos.longitude);
+        setState(() {});
+
+        /// Move Google Map camera to bus's new location
+        _moveCamera(currentPos!);
+
+        /// Send coordinates to server
+        await _sendLocationToServer(currentPos!);
+      } catch (e) {
+        debugPrint("Error updating location: $e");
+      }
+    });
+  }
+
 
