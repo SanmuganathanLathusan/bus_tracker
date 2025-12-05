@@ -359,17 +359,38 @@ class _LiveLocationPageState extends State<LiveLocationPage>
 
   // ---------------- LOCATION (USER) ----------------
   Future<void> _determinePositionAndStream() async {
-    final status = await Permission.location.request();
-    if (!status.isGranted) {
-      await openAppSettings();
-      if (mounted) setState(() => _loading = false);
-      return;
-    }
+    if (_isDisposed) return;
 
     try {
+      // Check location services
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please enable location services')),
+          );
+          setState(() => _loading = false);
+        }
+        return;
+      }
+
+      final status = await Permission.location.request();
+      if (!status.isGranted) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Location permission denied')),
+          );
+          setState(() => _loading = false);
+        }
+        return;
+      }
+
       final pos = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.best,
       );
+
+      if (_isDisposed || !mounted) return;
+
       _updateUserPosition(LatLng(pos.latitude, pos.longitude), immediate: true);
 
       _positionStream =
@@ -378,22 +399,38 @@ class _LiveLocationPageState extends State<LiveLocationPage>
               accuracy: LocationAccuracy.best,
               distanceFilter: locationDistanceFilterMeters,
             ),
-          ).listen((position) {
-            final now = DateTime.now();
-            if (now.difference(_lastUserUpdate) < userUpdateMinInterval) return;
-            _lastUserUpdate = now;
-            _updateUserPosition(LatLng(position.latitude, position.longitude));
-          });
+          ).listen(
+            (position) {
+              if (_isDisposed || !mounted) return;
+
+              final now = DateTime.now();
+              if (now.difference(_lastUserUpdate) < userUpdateMinInterval)
+                return;
+              _lastUserUpdate = now;
+              _updateUserPosition(
+                LatLng(position.latitude, position.longitude),
+              );
+            },
+            onError: (error) {
+              debugPrint('Position stream error: $error');
+            },
+          );
     } catch (e) {
       debugPrint('Location error: $e');
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Location error: $e')));
+      }
     }
   }
 
   static const double _cheapUserThresholdDeg = 0.00045; // ~50m
-  // ~111m
 
-  void _updateUserPosition(LatLng newPos, {bool immediate = false}) async {
+  void _updateUserPosition(LatLng newPos, {bool immediate = false}) {
+    if (_isDisposed || !mounted) return;
+
     _currentPosition = newPos;
 
     final existing = _markerMap[userMarkerId];
@@ -405,7 +442,6 @@ class _LiveLocationPageState extends State<LiveLocationPage>
             _cheapUserThresholdDeg;
 
     if (movedCheap) {
-      // For user, we accept the cheap threshold—avoid isolate for user to keep snappy UI
       _markerMap[userMarkerId] = Marker(
         markerId: const MarkerId(userMarkerId),
         position: newPos,
@@ -413,7 +449,6 @@ class _LiveLocationPageState extends State<LiveLocationPage>
         infoWindow: const InfoWindow(title: 'You are here'),
       );
 
-      // center camera on first fix or when forced
       if (immediate) {
         _moveCameraThrottled(newPos, force: true);
       } else {
@@ -421,17 +456,11 @@ class _LiveLocationPageState extends State<LiveLocationPage>
       }
 
       if (mounted) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          setState(() => _loading = false);
-        });
+        setState(() => _loading = false);
       }
     } else {
       if (_loading && mounted) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          setState(() => _loading = false);
-        });
+        setState(() => _loading = false);
       }
     }
   }
