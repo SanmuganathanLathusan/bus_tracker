@@ -218,12 +218,19 @@ class ReservationService {
 
       print('🔵 Confirming reservation with card: $reservationId');
       final uri = Uri.parse("$baseUrl/reservations/confirm");
-      final body = jsonEncode({"reservationId": reservationId, "cardDetails": cardDetails});
+      final body = jsonEncode({
+        "reservationId": reservationId,
+        "cardDetails": cardDetails,
+      });
 
-      final response = await http.post(uri, headers: _defaultHeaders(token), body: body).timeout(_timeout);
+      final response = await http
+          .post(uri, headers: _defaultHeaders(token), body: body)
+          .timeout(_timeout);
       final data = _handleResponse(response);
       if (data is Map<String, dynamic>) return data;
-      throw Exception('Unexpected response shape on confirmReservationWithCard');
+      throw Exception(
+        'Unexpected response shape on confirmReservationWithCard',
+      );
     } catch (e) {
       print('❌ Confirm reservation error: $e');
       rethrow;
@@ -237,7 +244,9 @@ class ReservationService {
       if (token == null) throw Exception('Not authenticated');
 
       final uri = Uri.parse("$baseUrl/reservations/my-reservations");
-      final response = await http.get(uri, headers: _defaultHeaders(token)).timeout(_timeout);
+      final response = await http
+          .get(uri, headers: _defaultHeaders(token))
+          .timeout(_timeout);
       final data = _handleResponse(response);
       if (data is List) return List<Map<String, dynamic>>.from(data);
       return [];
@@ -254,7 +263,9 @@ class ReservationService {
       if (token == null) throw Exception('Not authenticated');
 
       final uri = Uri.parse("$baseUrl/reservations/$id");
-      final response = await http.get(uri, headers: _defaultHeaders(token)).timeout(_timeout);
+      final response = await http
+          .get(uri, headers: _defaultHeaders(token))
+          .timeout(_timeout);
       final data = _handleResponse(response);
       if (data is Map<String, dynamic>) return data;
       throw Exception('Unexpected response shape when fetching reservation');
