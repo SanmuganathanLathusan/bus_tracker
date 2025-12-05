@@ -41,3 +41,52 @@ class _LiveMapPageState extends State<LiveMapPage> {
     locationTimer?.cancel(); /// Stop periodic timer when page is closed
     super.dispose();
   }
+  // ============================================================
+  //    LOCATION PERMISSION CHECK + INITIAL GPS POSITION
+  // ============================================================
+  Future<void> _checkPermissions() async {
+    /// Check if GPS hardware is turned ON
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+
+    if (!serviceEnabled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please enable location services")),
+      );
+      return;
+    }
+
+    /// Check if app has permission to access GPS
+    LocationPermission permission = await Geolocator.checkPermission();
+
+    /// Asking permission if denied
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+
+      if (permission == LocationPermission.denied) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Location permission denied")),
+        );
+        return;
+      }
+    }
+
+    /// Permission denied forever (User must change from phone settings)
+    if (permission == LocationPermission.deniedForever) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "Location permissions permanently denied. Enable them from settings.",
+          ),
+        ),
+      );
+      return;
+    }
+
+    /// If permission granted → get initial GPS location
+    Position pos = await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.best,
+    );
+
+    setState(() => currentPos = LatLng(pos.latitude, pos.longitude));
+  }
+
