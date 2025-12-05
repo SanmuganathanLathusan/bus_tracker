@@ -65,6 +65,7 @@ class _LiveLocationPageState extends State<LiveLocationPage>
 
   // Flags & timestamps
   bool _loading = true;
+  bool _isDisposed = false;
   DateTime _lastUserUpdate = DateTime.fromMillisecondsSinceEpoch(0);
   DateTime _lastCameraMove = DateTime.fromMillisecondsSinceEpoch(0);
 
@@ -467,30 +468,35 @@ class _LiveLocationPageState extends State<LiveLocationPage>
 
   // ---------------- CAMERA THROTTLE ----------------
   void _moveCameraThrottled(LatLng target, {bool force = false}) {
+    if (_isDisposed || _mapController == null) return;
+
     final now = DateTime.now();
     if (!force && now.difference(_lastCameraMove) < cameraMinInterval) {
       _cameraTimer?.cancel();
       final delay = cameraMinInterval - now.difference(_lastCameraMove);
       _cameraTimer = Timer(delay, () {
+        if (_isDisposed || _mapController == null) return;
         _lastCameraMove = DateTime.now();
         try {
           _mapController?.animateCamera(CameraUpdate.newLatLng(target));
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('Camera animation error: $e');
+        }
       });
       return;
     }
 
     _cameraTimer?.cancel();
-    _lastCameraMove = DateTime.now();
+    _lastCameraMove = now;
     try {
       _mapController?.animateCamera(CameraUpdate.newLatLng(target));
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Camera animation error: $e');
+    }
   }
 
   // ---------------- HELPERS ----------------
   double _calculateDistanceKm(LatLng a, LatLng b) {
-    // Keep this lightweight; use compute only when you need accurate result elsewhere.
-    // For UI thresholds we rely on degree approximations and isolate elsewhere.
     const R = 6371.0;
     final dLat = _deg2rad(b.latitude - a.latitude);
     final dLon = _deg2rad(b.longitude - a.longitude);
@@ -501,7 +507,7 @@ class _LiveLocationPageState extends State<LiveLocationPage>
             sin(dLon / 2) *
             sin(dLon / 2);
     final c = 2 * atan2(sqrt(aa), sqrt(1 - aa));
-    return R * c; // km
+    return R * c;
   }
 
   double _deg2rad(double deg) => deg * (pi / 180);
@@ -514,25 +520,27 @@ class _LiveLocationPageState extends State<LiveLocationPage>
     return "${h}h ${m}m";
   }
 
-  // Generate route path with intermediate points for smoother visualization
   List<LatLng> _generateRoutePath(LatLng origin, LatLng destination) {
     final points = <LatLng>[origin];
-    
-    // Add intermediate points for smoother curve (simple interpolation)
+
     const numIntermediatePoints = 10;
     for (int i = 1; i < numIntermediatePoints; i++) {
       final ratio = i / numIntermediatePoints;
-      final lat = origin.latitude + (destination.latitude - origin.latitude) * ratio;
-      final lng = origin.longitude + (destination.longitude - origin.longitude) * ratio;
+      final lat =
+          origin.latitude + (destination.latitude - origin.latitude) * ratio;
+      final lng =
+          origin.longitude + (destination.longitude - origin.longitude) * ratio;
       points.add(LatLng(lat, lng));
     }
-    
+
     points.add(destination);
     return points;
   }
 
   // ---------------- ROUTE SEARCH ----------------
   Future<void> _showRouteSearchDialog() async {
+    if (_isDisposed || !mounted) return;
+
     String? from = _selectedFrom;
     String? to = _selectedTo;
     DateTime selectedDate = _selectedDate;
@@ -549,7 +557,7 @@ class _LiveLocationPageState extends State<LiveLocationPage>
       ),
     );
 
-    if (result != null) {
+    if (result != null && mounted) {
       setState(() {
         _selectedFrom = result['from'];
         _selectedTo = result['to'];
@@ -560,49 +568,89 @@ class _LiveLocationPageState extends State<LiveLocationPage>
   }
 
   Future<void> _searchAndSelectRoute() async {
-    if (_selectedFrom == null || _selectedTo == null) return;
+    if (_isDisposed || !mounted || _selectedFrom == null || _selectedTo == null)
+      return;
 
     try {
       final dateForApi = DateFormat('yyyy-MM-dd').format(_selectedDate);
+
+      // Show loading indicator
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(width: 12),
+                Text('Searching routes...'),
+              ],
+            ),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+
       final routes = await _reservationService.searchRoutes(
         start: _selectedFrom!,
         destination: _selectedTo!,
         date: dateForApi,
       );
 
+      if (!mounted) return;
+
       if (routes.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No routes found for selected date')),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No routes found for selected date')),
+        );
         return;
       }
 
-      // Filter routes with live location (check both hasLiveLocation and isLocationSharing)
-      final routesWithLiveLocation = routes.where((r) => 
-        (r['hasLiveLocation'] == true || r['isLocationSharing'] == true) && 
-        r['busId'] != null
-      ).toList();
+      final routesWithLiveLocation = routes
+          .where(
+            (r) =>
+                (r['hasLiveLocation'] == true ||
+                    r['isLocationSharing'] == true) &&
+                r['busId'] != null,
+          )
+          .toList();
 
       if (routesWithLiveLocation.isEmpty) {
-        if (mounted) {
+        // If no routes with live location, show all routes anyway
+        debugPrint('⚠️ No routes with live location, showing all routes');
+
+        final selectedRoute = await showDialog<Map<String, dynamic>>(
+          context: context,
+          builder: (context) =>
+              _RouteSelectionDialog(routes: routes, hasLiveLocation: false),
+        );
+
+        if (selectedRoute != null && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No buses with live location available')),
+            const SnackBar(
+              content: Text('This route does not have live location tracking'),
+              backgroundColor: Colors.orange,
+            ),
           );
         }
         return;
       }
 
-      // Show route selection dialog
       final selectedRoute = await showDialog<Map<String, dynamic>>(
         context: context,
         builder: (context) => _RouteSelectionDialog(
           routes: routesWithLiveLocation,
+          hasLiveLocation: true,
         ),
       );
 
-      if (selectedRoute != null) {
+      if (selectedRoute != null && mounted) {
         setState(() {
           _selectedRoute = selectedRoute;
           _busId = selectedRoute['busId']?.toString();
@@ -610,68 +658,97 @@ class _LiveLocationPageState extends State<LiveLocationPage>
           _routeDestination = _cityCoordinates[_selectedTo];
         });
 
-        // Draw route polyline with intermediate points for smoother curve
         if (_routeOrigin != null && _routeDestination != null) {
-          _routePolyline = _generateRoutePath(_routeOrigin!, _routeDestination!);
+          _routePolyline = _generateRoutePath(
+            _routeOrigin!,
+            _routeDestination!,
+          );
         }
 
-        // Start fetching bus location
         _startFetchingBusLocation();
-
-        // Fit bounds to show both origin, destination, and current positions
         _fitMapToRoute();
       }
+    } on Exception catch (e) {
+      debugPrint('❌ Error searching routes: $e');
+      if (mounted) {
+        String errorMessage = 'Error searching routes';
+        if (e.toString().contains('Authentication')) {
+          errorMessage = 'Please login to view routes';
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            action: SnackBarAction(
+              label: 'OK',
+              textColor: Colors.white,
+              onPressed: () {},
+            ),
+          ),
+        );
+      }
     } catch (e) {
+      debugPrint('❌ Unexpected error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error searching routes: $e')),
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
   }
 
   void _startFetchingBusLocation() {
+    if (_isDisposed) return;
+
     _busLocationTimer?.cancel();
     _fetchBusLocation();
     _busLocationTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-      _fetchBusLocation();
+      if (!_isDisposed && mounted) {
+        _fetchBusLocation();
+      }
     });
   }
 
   Future<void> _fetchBusLocation() async {
-    if (_busId == null) return;
+    if (_isDisposed || !mounted || _busId == null) return;
 
     try {
       final uri = Uri.parse("$baseUrl/bus/$_busId");
       final response = await http.get(uri).timeout(const Duration(seconds: 5));
 
+      if (!mounted || _isDisposed) return;
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        
-        // Handle case where location sharing is disabled
+
         if (data['location'] == null) {
           debugPrint('Bus location sharing is disabled');
           return;
         }
-        
-        if (data['location'] is Map && 
-            data['location']['lat'] != null && 
+
+        if (data['location'] is Map &&
+            data['location']['lat'] != null &&
             data['location']['lng'] != null) {
           final lat = (data['location']['lat'] as num).toDouble();
           final lng = (data['location']['lng'] as num).toDouble();
-          
-          // Validate coordinates are in Sri Lanka
+
           if (lat >= 5.9 && lat <= 10.0 && lng >= 79.6 && lng <= 82.0) {
+            if (!mounted || _isDisposed) return;
+
             setState(() {
               _busLocation = LatLng(lat, lng);
             });
 
-            // Update bus marker
             _markerMap[busMarkerId] = Marker(
               markerId: const MarkerId(busMarkerId),
               position: _busLocation!,
               infoWindow: InfoWindow(
-                title: _selectedRoute?['busName'] ?? 'Bus ${_selectedRoute?['busNumber'] ?? _busId}',
+                title:
+                    _selectedRoute?['busName'] ??
+                    'Bus ${_selectedRoute?['busNumber'] ?? _busId}',
                 snippet: '${_selectedFrom} → ${_selectedTo}',
               ),
               icon: BitmapDescriptor.defaultMarkerWithHue(
@@ -691,7 +768,7 @@ class _LiveLocationPageState extends State<LiveLocationPage>
   }
 
   void _fitMapToRoute() {
-    if (_mapController == null) return;
+    if (_isDisposed || _mapController == null) return;
 
     final positions = <LatLng>[];
     if (_currentPosition != null) positions.add(_currentPosition!);
@@ -718,24 +795,35 @@ class _LiveLocationPageState extends State<LiveLocationPage>
       northeast: LatLng(maxLat + 0.1, maxLng + 0.1),
     );
 
-    _mapController?.animateCamera(
-      CameraUpdate.newLatLngBounds(bounds, 100),
-    );
+    try {
+      _mapController?.animateCamera(CameraUpdate.newLatLngBounds(bounds, 100));
+    } catch (e) {
+      debugPrint('Error fitting map bounds: $e');
+    }
   }
 
   // ---------------- MAP ----------------
   void _onMapCreated(GoogleMapController controller) {
-    _mapController = controller;
-    // Lighter style: hide POIs & transit labels
-    _mapController?.setMapStyle('''
-      [
-        {"featureType":"poi","elementType":"labels","stylers":[{"visibility":"off"}]},
-        {"featureType":"transit","elementType":"labels","stylers":[{"visibility":"off"}]}
-      ]
-    ''');
+    if (_isDisposed) {
+      controller.dispose();
+      return;
+    }
 
-    if (_currentPosition != null) {
-      _moveCameraThrottled(_currentPosition!, force: true);
+    _mapController = controller;
+
+    try {
+      _mapController?.setMapStyle('''
+        [
+          {"featureType":"poi","elementType":"labels","stylers":[{"visibility":"off"}]},
+          {"featureType":"transit","elementType":"labels","stylers":[{"visibility":"off"}]}
+        ]
+      ''');
+
+      if (_currentPosition != null) {
+        _moveCameraThrottled(_currentPosition!, force: true);
+      }
+    } catch (e) {
+      debugPrint('Error setting map style: $e');
     }
   }
 
@@ -782,12 +870,7 @@ class _LiveLocationPageState extends State<LiveLocationPage>
                   buildingsEnabled: false,
                   indoorViewEnabled: false,
                 ),
-          Positioned(
-            bottom: 20,
-            left: 20,
-            right: 20,
-            child: _buildInfoCard(),
-          ),
+          Positioned(bottom: 20, left: 20, right: 20, child: _buildInfoCard()),
         ],
       ),
     );
@@ -795,20 +878,20 @@ class _LiveLocationPageState extends State<LiveLocationPage>
 
   Set<Marker> _createMarkerSet() {
     final markers = Set<Marker>.of(_markerMap.values);
-    
-    // Add origin marker if route is selected
+
     if (_routeOrigin != null) {
       markers.add(
         Marker(
           markerId: const MarkerId('route_origin'),
           position: _routeOrigin!,
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueGreen,
+          ),
           infoWindow: InfoWindow(title: 'Origin: $_selectedFrom'),
         ),
       );
     }
-    
-    // Add destination marker if route is selected
+
     if (_routeDestination != null) {
       markers.add(
         Marker(
@@ -819,14 +902,13 @@ class _LiveLocationPageState extends State<LiveLocationPage>
         ),
       );
     }
-    
+
     return markers;
   }
 
   Set<Polyline> _createPolylines() {
     final polylines = <Polyline>{};
-    
-    // Route polyline (origin to destination)
+
     if (_routePolyline.length >= 2) {
       polylines.add(
         Polyline(
@@ -838,7 +920,7 @@ class _LiveLocationPageState extends State<LiveLocationPage>
         ),
       );
     }
-    
+
     return polylines;
   }
 
@@ -927,7 +1009,11 @@ class _LiveLocationPageState extends State<LiveLocationPage>
               const SizedBox(height: 8),
               Row(
                 children: [
-                  const Icon(Icons.directions_bus, color: Colors.blue, size: 25),
+                  const Icon(
+                    Icons.directions_bus,
+                    color: Colors.blue,
+                    size: 25,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -980,7 +1066,8 @@ class _RouteSearchBottomSheet extends StatefulWidget {
   });
 
   @override
-  State<_RouteSearchBottomSheet> createState() => _RouteSearchBottomSheetState();
+  State<_RouteSearchBottomSheet> createState() =>
+      _RouteSearchBottomSheetState();
 }
 
 class _RouteSearchBottomSheetState extends State<_RouteSearchBottomSheet> {
@@ -1003,7 +1090,9 @@ class _RouteSearchBottomSheetState extends State<_RouteSearchBottomSheet> {
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365)),
     );
-    if (picked != null) setState(() => _selectedDate = picked);
+    if (picked != null && mounted) {
+      setState(() => _selectedDate = picked);
+    }
   }
 
   @override
@@ -1027,10 +1116,7 @@ class _RouteSearchBottomSheetState extends State<_RouteSearchBottomSheet> {
             children: [
               const Text(
                 'Search Route',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const Spacer(),
               IconButton(
@@ -1051,10 +1137,17 @@ class _RouteSearchBottomSheetState extends State<_RouteSearchBottomSheet> {
                     DropdownButtonFormField<String>(
                       value: _from,
                       items: widget.cities
-                          .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                          .map(
+                            (c) => DropdownMenuItem(value: c, child: Text(c)),
+                          )
                           .toList(),
-                      onChanged: (v) => setState(() => _from = v!),
+                      onChanged: (v) {
+                        if (v != null && mounted) {
+                          setState(() => _from = v);
+                        }
+                      },
                       decoration: InputDecoration(
+                        isDense: true, // optional, makes it a bit more compact
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -1063,18 +1156,26 @@ class _RouteSearchBottomSheetState extends State<_RouteSearchBottomSheet> {
                   ],
                 ),
               ),
-              const SizedBox(width: 16),
-              IconButton(
-                icon: const Icon(Icons.swap_horiz),
-                onPressed: () {
-                  setState(() {
-                    final temp = _from;
-                    _from = _to;
-                    _to = temp;
-                  });
-                },
+              const SizedBox(width: 8),
+              // 👇 Constrained swap button so it doesn't eat space
+              SizedBox(
+                width: 35,
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  icon: const Icon(Icons.swap_horiz),
+                  onPressed: () {
+                    if (mounted) {
+                      setState(() {
+                        final temp = _from;
+                        _from = _to;
+                        _to = temp;
+                      });
+                    }
+                  },
+                ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1084,10 +1185,17 @@ class _RouteSearchBottomSheetState extends State<_RouteSearchBottomSheet> {
                     DropdownButtonFormField<String>(
                       value: _to,
                       items: widget.cities
-                          .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                          .map(
+                            (c) => DropdownMenuItem(value: c, child: Text(c)),
+                          )
                           .toList(),
-                      onChanged: (v) => setState(() => _to = v!),
+                      onChanged: (v) {
+                        if (v != null && mounted) {
+                          setState(() => _to = v);
+                        }
+                      },
                       decoration: InputDecoration(
+                        isDense: true, // optional
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -1098,6 +1206,7 @@ class _RouteSearchBottomSheetState extends State<_RouteSearchBottomSheet> {
               ),
             ],
           ),
+
           const SizedBox(height: 16),
           InkWell(
             onTap: _pickDate,
@@ -1130,6 +1239,7 @@ class _RouteSearchBottomSheetState extends State<_RouteSearchBottomSheet> {
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 backgroundColor: const Color(0xFF0C2442),
+                foregroundColor: Colors.white,
               ),
               child: const Text('Search Routes'),
             ),
@@ -1144,12 +1254,17 @@ class _RouteSearchBottomSheetState extends State<_RouteSearchBottomSheet> {
 // Route Selection Dialog
 class _RouteSelectionDialog extends StatelessWidget {
   final List<Map<String, dynamic>> routes;
+  final bool hasLiveLocation;
 
-  const _RouteSelectionDialog({required this.routes});
+  const _RouteSelectionDialog({
+    required this.routes,
+    this.hasLiveLocation = true,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         constraints: const BoxConstraints(maxHeight: 500),
         child: Column(
@@ -1161,10 +1276,7 @@ class _RouteSelectionDialog extends StatelessWidget {
                 children: [
                   const Text(
                     'Select Route',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const Spacer(),
                   IconButton(
@@ -1174,14 +1286,23 @@ class _RouteSelectionDialog extends StatelessWidget {
                 ],
               ),
             ),
+            const Divider(height: 1),
             Flexible(
               child: ListView.builder(
                 shrinkWrap: true,
                 itemCount: routes.length,
                 itemBuilder: (context, index) {
                   final route = routes[index];
+                  final isLive =
+                      hasLiveLocation &&
+                      (route['hasLiveLocation'] == true ||
+                          route['isLocationSharing'] == true);
+
                   return ListTile(
-                    leading: const Icon(Icons.directions_bus, color: Colors.blue),
+                    leading: const Icon(
+                      Icons.directions_bus,
+                      color: Colors.blue,
+                    ),
                     title: Text(
                       '${route['start']} → ${route['destination']}',
                       style: const TextStyle(fontWeight: FontWeight.bold),
@@ -1195,6 +1316,49 @@ class _RouteSelectionDialog extends StatelessWidget {
                           Text('Time: ${route['scheduledTime']}'),
                         if (route['driverName'] != null)
                           Text('Driver: ${route['driverName']}'),
+                        if (isLive)
+                          Row(
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  color: Colors.green,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              const Text(
+                                'Live Location Available',
+                                style: TextStyle(
+                                  color: Colors.green,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          )
+                        else
+                          Row(
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  color: Colors.grey,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              const Text(
+                                'No Live Location',
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
                       ],
                     ),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
