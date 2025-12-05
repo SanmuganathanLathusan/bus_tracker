@@ -282,7 +282,13 @@ class ReservationService {
       if (token == null) throw Exception('Not authenticated');
 
       final uri = Uri.parse("$baseUrl/reservations/validate");
-      final response = await http.post(uri, headers: _defaultHeaders(token), body: jsonEncode({"ticketId": ticketId})).timeout(_timeout);
+      final response = await http
+          .post(
+            uri,
+            headers: _defaultHeaders(token),
+            body: jsonEncode({"ticketId": ticketId}),
+          )
+          .timeout(_timeout);
       final data = _handleResponse(response);
       if (data is Map<String, dynamic>) return data;
       throw Exception('Unexpected response shape when validating ticket');
@@ -299,7 +305,9 @@ class ReservationService {
       if (token == null) throw Exception('Not authenticated');
 
       final uri = Uri.parse("$baseUrl/driver/trip/$tripId/passengers");
-      final response = await http.get(uri, headers: _defaultHeaders(token)).timeout(_timeout);
+      final response = await http
+          .get(uri, headers: _defaultHeaders(token))
+          .timeout(_timeout);
       final data = _handleResponse(response);
       if (data is List) return List<Map<String, dynamic>>.from(data);
       return [];
