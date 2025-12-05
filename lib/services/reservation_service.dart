@@ -126,16 +126,22 @@ class ReservationService {
 
       final uri = Uri.parse("$baseUrl/reservations");
       print('📍 URL: $uri');
-      
-      final body = jsonEncode({"routeId": routeId, "seats": seats, "date": date});
+
+      final body = jsonEncode({
+        "routeId": routeId,
+        "seats": seats,
+        "date": date,
+      });
       print('📦 Body: $body');
-      
+
       final headers = _defaultHeaders(token);
       print('📋 Headers: $headers');
 
       print('📤 Sending POST request...');
-      final response = await http.post(uri, headers: headers, body: body).timeout(_timeout);
-      
+      final response = await http
+          .post(uri, headers: headers, body: body)
+          .timeout(_timeout);
+
       final data = _handleResponse(response);
       if (data is Map<String, dynamic>) {
         print('✅ Reservation created successfully');
@@ -160,17 +166,17 @@ class ReservationService {
       print('═══════════════════════════════════════');
       print('🔵 CONFIRM RESERVATION DEBUG');
       print('═══════════════════════════════════════');
-      
+
       final token = await _getToken();
       if (token == null) throw Exception('Not authenticated');
 
       print('✅ Token obtained successfully');
       print('🔵 Confirming reservation: $reservationId with $paymentMethod');
       print('💰 Amount: $amount');
-      
+
       final uri = Uri.parse("$baseUrl/reservations/confirm");
       print('📍 URL: $uri');
-      
+
       final bodyData = {
         "reservationId": reservationId,
         "paymentMethod": paymentMethod,
@@ -178,13 +184,15 @@ class ReservationService {
       };
       final body = jsonEncode(bodyData);
       print('📦 Body: $body');
-      
+
       final headers = _defaultHeaders(token);
       print('📋 Headers: $headers');
 
       print('📤 Sending POST request...');
-      final response = await http.post(uri, headers: headers, body: body).timeout(_timeout);
-      
+      final response = await http
+          .post(uri, headers: headers, body: body)
+          .timeout(_timeout);
+
       final data = _handleResponse(response);
       if (data is Map<String, dynamic>) {
         print('✅ Reservation confirmed successfully');
