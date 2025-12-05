@@ -198,5 +198,55 @@ class _LiveMapPageState extends State<LiveMapPage> {
                     target: currentPos!,
                     zoom: 15.0,
                   ),
+                  /// Allow phone to show blue dot location
+                  myLocationEnabled: true,
+
+                  /// Show bus marker on the map
+                  markers: {
+                    Marker(
+                      markerId: MarkerId(widget.busId),
+                      position: currentPos!,
+                      infoWindow: InfoWindow(title: "Bus ${widget.busId}"),
+                      icon: BitmapDescriptor.defaultMarkerWithHue(
+                        BitmapDescriptor.hueAzure,
+                      ),
+                    ),
+                  },
+                ),
+
+                /// START / STOP SHARING BUTTON
+                Positioned(
+                  bottom: 25,
+                  left: 20,
+                  right: 20,
+                  child: ElevatedButton(
+                    onPressed: _toggleSharing,
+
+                    /// Button theme changes depending on state
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor:
+                          isSharing ? Colors.redAccent : Colors.green,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 6,
+                    ),
+
+                    child: Text(
+                      isSharing ? "Stop Sharing" : "Start Sharing",
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+}
 
 
