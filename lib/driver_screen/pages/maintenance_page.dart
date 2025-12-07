@@ -196,3 +196,30 @@ class MaintenanceReportsList extends StatelessWidget {
 }
 
 
+// NEW MAINTENANCE REPORT FORM
+
+class NewMaintenanceReportForm extends StatelessWidget {
+  const NewMaintenanceReportForm({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    // Scrollable form for submitting new issues
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+
+          Text("Submit New Report", style: AppTextStyles.subHeading),
+          const SizedBox(height: 16),
+
+          // Issue type section
+          Text(
+            "Issue Type",
+            style: AppTextStyles.body.copyWith(fontWeight: FontWeight.bold),
+          ),
+
+          const SizedBox(height: 8),
+
+
