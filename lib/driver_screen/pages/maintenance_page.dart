@@ -142,3 +142,34 @@ class MaintenanceReportsList extends StatelessWidget {
               ],
             ),
 
+            const SizedBox(height: 10),
+
+            // Issue name
+            Text(
+              issue,
+              style: AppTextStyles.subHeading.copyWith(
+                color: AppColors.textPrimary,
+              ),
+            ),
+
+            const SizedBox(height: 15),
+
+            // Action buttons (View Details / Follow Up)
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () {},
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: AppColors.accentPrimary),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text("View Details"),
+                  ),
+                ),
+
+                const SizedBox(width: 10),
+
+
