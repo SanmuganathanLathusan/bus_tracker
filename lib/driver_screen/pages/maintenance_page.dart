@@ -38,3 +38,25 @@ class MaintenancePage extends StatelessWidget {
                 ],
               ),
             ),
+
+            // Page switching
+            const Expanded(
+              child: TabBarView(
+                children: [
+                  MaintenanceReportsList(),
+                  NewMaintenanceReportForm(),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+// LIST OF USER'S PREVIOUS REPORTS
+
+class MaintenanceReportsList extends StatelessWidget {
+  const MaintenanceReportsList({Key? key}) : super(key: key);
