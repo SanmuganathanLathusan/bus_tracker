@@ -222,4 +222,41 @@ class NewMaintenanceReportForm extends StatelessWidget {
 
           const SizedBox(height: 8),
 
+          DropdownButtonFormField<String>(
+            items: const [
+              DropdownMenuItem(value: "engine", child: Text("Engine")),
+              DropdownMenuItem(value: "brakes", child: Text("Brakes")),
+              DropdownMenuItem(value: "tires", child: Text("Tires")),
+              DropdownMenuItem(value: "ac", child: Text("AC / Cooling")),
+              DropdownMenuItem(value: "electrical", child: Text("Electrical")),
+              DropdownMenuItem(value: "other", child: Text("Other")),
+            ],
+            onChanged: (value) {},
+
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: AppColors.backgroundSecondary,
+
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(
+                  color: AppColors.accentPrimary,
+                  width: 1.5,
+                ),
+              ),
+
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 14,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
 
