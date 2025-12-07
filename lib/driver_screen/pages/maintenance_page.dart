@@ -259,4 +259,44 @@ class NewMaintenanceReportForm extends StatelessWidget {
 
           const SizedBox(height: 16),
 
+          // Description box
+          Text(
+            "Description",
+            style: AppTextStyles.body.copyWith(fontWeight: FontWeight.bold),
+          ),
+
+          const SizedBox(height: 8),
+
+          TextFormField(
+            maxLines: 4,
+            decoration: InputDecoration(
+              hintText: "Describe the issue in detail...",
+              filled: true,
+              fillColor: AppColors.backgroundSecondary,
+
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(
+                  color: AppColors.accentPrimary,
+                  width: 1.5,
+                ),
+              ),
+
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Image upload area
+          Text(
+            "Upload Photo (Optional)",
+            style: AppTextStyles.body.copyWith(fontWeight: FontWeight.bold),
+          ),
+
+          const SizedBox(height: 8),
+
 
