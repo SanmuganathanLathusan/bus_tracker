@@ -60,3 +60,34 @@ class MaintenancePage extends StatelessWidget {
 
 class MaintenanceReportsList extends StatelessWidget {
   const MaintenanceReportsList({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    // Static list of sample reports (dummy data)
+    return ListView(
+      padding: const EdgeInsets.all(16.0),
+      children: [
+        _buildReportCard(
+          date: "Oct 31, 2025",
+          issue: "AC not working",
+          status: "Pending",
+          statusColor: Colors.orange,
+        ),
+
+        _buildReportCard(
+          date: "Oct 29, 2025",
+          issue: "Tire replaced",
+          status: "Resolved",
+          statusColor: Colors.green,
+        ),
+
+        _buildReportCard(
+          date: "Oct 25, 2025",
+          issue: "Engine noise",
+          status: "Resolved",
+          statusColor: Colors.green,
+        ),
+      ],
+    );
+  }
+
