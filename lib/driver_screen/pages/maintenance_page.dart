@@ -91,3 +91,54 @@ class MaintenanceReportsList extends StatelessWidget {
     );
   }
 
+  // Card for each maintenance report
+  Widget _buildReportCard({
+    required String date,
+    required String issue,
+    required String status,
+    required Color statusColor,
+  }) {
+    return Card(
+      elevation: 3,
+      shadowColor: AppColors.shadowLight,
+      color: AppColors.backgroundSecondary,
+      margin: const EdgeInsets.only(bottom: 16),
+
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+
+            // Date + Status Row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  date,
+                  style: AppTextStyles.body.copyWith(fontWeight: FontWeight.bold),
+                ),
+
+                // Status label
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    status,
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: statusColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
