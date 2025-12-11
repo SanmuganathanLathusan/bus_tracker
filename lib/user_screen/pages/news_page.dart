@@ -41,12 +41,103 @@ class _PassengerNewsFeedState extends State<MainNews> {
     }
   }
 
+  // ----------------------------
+  // REUSABLE NEWS CARD WIDGET
+  // ----------------------------
+  Widget _buildNewsCard(Map<String, dynamic> news) {
+    DateTime? newsDate;
+
+    if (news["date"] is String) {
+      newsDate = DateTime.tryParse(news["date"]);
+    } else if (news["date"] is Map && news["date"]["\$date"] != null) {
+      newsDate =
+          DateTime.fromMillisecondsSinceEpoch(news["date"]["\$date"] as int);
+    }
+
+    newsDate ??= DateTime.now();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.45),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // IMAGE
+          if (news["imageUrl"] != null && news["imageUrl"].toString().isNotEmpty)
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              child: Image.network(
+                news["imageUrl"],
+                height: 180,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  height: 180,
+                  color: Colors.grey.shade900,
+                  child: const Icon(Icons.broken_image, color: Colors.grey),
+                ),
+              ),
+            ),
+
+          // TEXT CONTENT
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  news['title'] ?? 'Untitled News',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+
+                const SizedBox(height: 6),
+
+                Text(
+                  news['description'] ?? '',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13.5,
+                    height: 1.4,
+                  ),
+                ),
+
+                const SizedBox(height: 10),
+
+                Align(
+                  alignment: Alignment.bottomRight,
+                  child: Text(
+                    DateFormat("dd/MM/yyyy").format(newsDate),
+                    style: const TextStyle(
+                      color: Colors.grey,
+                      fontSize: 12,
+                    ),
+                  ),
+                )
+              ],
+            ),
+          )
+        ],
+      ),
+    );
+  }
+
+  // ----------------------------
+  // MAIN UI
+  // ----------------------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         children: [
-          // 🔹 Background Image
+          // Background image
           Container(
             decoration: const BoxDecoration(
               image: DecorationImage(
@@ -56,40 +147,35 @@ class _PassengerNewsFeedState extends State<MainNews> {
             ),
           ),
 
-          // 🔹 Dark Overlay for readability
-          Container(
-            color: const Color.fromARGB(255, 0, 0, 0).withOpacity(0.6),
-          ),
+          // Dark overlay
+          Container(color: Colors.black.withOpacity(0.6)),
 
-          // 🔹 Main Content (Back icon + News list)
           SafeArea(
             child: Column(
               children: [
-                // Back icon
-                Align(
-                  alignment: Alignment.topLeft,
-                  child: Padding(
-                    padding: const EdgeInsets.all(10),
-                    child: InkWell(
-                      onTap: () => Navigator.pop(context),
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.5),
-                          shape: BoxShape.circle,
+                // BACK BUTTON
+                Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: Row(
+                    children: [
+                      InkWell(
+                        onTap: () => Navigator.pop(context),
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.black.withOpacity(0.5),
+                          ),
+                          child: const Icon(Icons.arrow_back, color: Colors.white),
                         ),
-                        child: const Icon(Icons.arrow_back,
-                            color: Colors.white, size: 24),
-                      ),
-                    ),
+                      )
+                    ],
                   ),
                 ),
 
-                const SizedBox(height: 10),
-
-                // Title
+                // TITLE
                 const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16.0),
+                  padding: EdgeInsets.symmetric(horizontal: 16),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
@@ -106,7 +192,7 @@ class _PassengerNewsFeedState extends State<MainNews> {
 
                 const SizedBox(height: 10),
 
-                // News List
+                // CONTENT
                 Expanded(
                   child: _isLoading
                       ? const Center(
@@ -117,15 +203,13 @@ class _PassengerNewsFeedState extends State<MainNews> {
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Text(
-                                    "Error loading news",
-                                    style: const TextStyle(color: Colors.red),
-                                  ),
-                                  const SizedBox(height: 10),
+                                  const Text("Error loading news",
+                                      style: TextStyle(color: Colors.red)),
+                                  const SizedBox(height: 8),
                                   ElevatedButton(
                                     onPressed: _loadNews,
                                     child: const Text("Retry"),
-                                  ),
+                                  )
                                 ],
                               ),
                             )
@@ -138,114 +222,15 @@ class _PassengerNewsFeedState extends State<MainNews> {
                                 )
                               : RefreshIndicator(
                                   onRefresh: _loadNews,
-                                  color: Colors.white,
                                   child: ListView.builder(
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 14, vertical: 8),
                                     itemCount: _newsList.length,
-                                    itemBuilder: (context, index) {
-                                      final news = _newsList[index];
-                                      DateTime? newsDate;
-                                      if (news['date'] != null) {
-                                        if (news['date'] is String) {
-                                          newsDate = DateTime.tryParse(news['date']);
-                                        } else if (news['date'] is Map) {
-                                          // Handle MongoDB date format
-                                          final dateMap = news['date'] as Map;
-                                          if (dateMap['\$date'] != null) {
-                                            newsDate = DateTime.fromMillisecondsSinceEpoch(
-                                                dateMap['\$date'] as int);
-                                          }
-                                        }
-                                      }
-                                      newsDate ??= DateTime.now();
-
-                                      return Container(
-                                        margin: const EdgeInsets.only(bottom: 14),
-                                        decoration: BoxDecoration(
-                                          color: const Color.fromARGB(255, 0, 0, 0)
-                                              .withOpacity(0.45),
-                                          borderRadius: BorderRadius.circular(16),
-                                          border: Border.all(
-                                            color: Colors.white.withOpacity(0.08),
-                                          ),
-                                        ),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            // News Image
-                                            if (news['imageUrl'] != null &&
-                                                news['imageUrl'] != '' &&
-                                                news['imageUrl'].toString().isNotEmpty)
-                                              ClipRRect(
-                                                borderRadius: const BorderRadius.only(
-                                                  topLeft: Radius.circular(16),
-                                                  topRight: Radius.circular(16),
-                                                ),
-                                                child: Image.network(
-                                                  news['imageUrl'],
-                                                  height: 180,
-                                                  width: double.infinity,
-                                                  fit: BoxFit.cover,
-                                                  errorBuilder: (context, error, stackTrace) {
-                                                    return Container(
-                                                      height: 180,
-                                                      color: Colors.grey.shade800,
-                                                      child: const Icon(
-                                                        Icons.image_not_supported,
-                                                        color: Colors.grey,
-                                                      ),
-                                                    );
-                                                  },
-                                                ),
-                                              ),
-
-                                            // Text Section
-                                            Padding(
-                                              padding: const EdgeInsets.all(12.0),
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    news['title'] ?? 'No title',
-                                                    style: const TextStyle(
-                                                      color: Colors.white,
-                                                      fontWeight: FontWeight.bold,
-                                                      fontSize: 17,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 6),
-                                                  Text(
-                                                    news['description'] ?? '',
-                                                    style: const TextStyle(
-                                                      color: Colors.white70,
-                                                      fontSize: 13.5,
-                                                      height: 1.4,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 10),
-                                                  Align(
-                                                    alignment: Alignment.bottomRight,
-                                                    child: Text(
-                                                      DateFormat('dd/MM/yyyy')
-                                                          .format(newsDate),
-                                                      style: const TextStyle(
-                                                        fontSize: 12,
-                                                        color: Colors.grey,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    },
+                                    itemBuilder: (_, i) =>
+                                        _buildNewsCard(_newsList[i]),
                                   ),
                                 ),
-                ),
+                )
               ],
             ),
           ),
