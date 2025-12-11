@@ -4,11 +4,23 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+
+// Add callback function type
+typedef LocationSharingCallback = void Function(bool isSharing);
 
 class LiveMapPage extends StatefulWidget {
   final String busId; // Unique bus ID
+  final bool autoStart; // Auto-start location sharing
+  final LocationSharingCallback?
+  onLocationSharingUpdate; // Add callback parameter
 
-  const LiveMapPage({Key? key, required this.busId}) : super(key: key);
+  const LiveMapPage({
+    Key? key,
+    required this.busId,
+    this.autoStart = false,
+    this.onLocationSharingUpdate, // Add callback parameter
+  }) : super(key: key);
 
   @override
   State<LiveMapPage> createState() => _LiveMapPageState();
@@ -24,7 +36,12 @@ class _LiveMapPageState extends State<LiveMapPage> {
   @override
   void initState() {
     super.initState();
-    _checkPermissions();
+    _checkPermissions().then((_) {
+      if (widget.autoStart && currentPos != null && !isSharing) {
+        // Auto-start sharing if requested and not already sharing
+        _toggleSharing();
+      }
+    });
   }
 
   @override
@@ -73,19 +90,55 @@ class _LiveMapPageState extends State<LiveMapPage> {
   }
 
   // -------------------- START / STOP SHARING --------------------
-  void _toggleSharing() {
+  void _toggleSharing() async {
     if (isSharing) {
+      // Stop sharing
       locationTimer?.cancel();
+
+      // Notify server that location sharing has stopped
+      await _toggleLocationSharing(false);
+
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text("Stopped sharing location")));
     } else {
+      // Start sharing
       _startSendingLocation();
+
+      // Notify server that location sharing has started
+      await _toggleLocationSharing(true);
+
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text("Started sharing location")));
     }
+
+    // Update UI immediately
     setState(() => isSharing = !isSharing);
+
+    // Notify parent widget if callback is provided
+    widget.onLocationSharingUpdate?.call(isSharing);
+  }
+
+  Future<void> _toggleLocationSharing(bool isSharing) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+
+    if (token == null) return;
+
+    final url = Uri.parse("$serverUrl/api/bus/toggle-sharing");
+    try {
+      await http.post(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
+        body: jsonEncode({"busId": widget.busId, "isSharing": isSharing}),
+      );
+    } catch (e) {
+      debugPrint("Error toggling location sharing: $e");
+    }
   }
 
   // -------------------- SEND LOCATION TO SERVER --------------------
@@ -107,15 +160,23 @@ class _LiveMapPageState extends State<LiveMapPage> {
   }
 
   Future<void> _sendLocationToServer(LatLng location) async {
-    final url = Uri.parse("$serverUrl/api/location/update");
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+
+    if (token == null) return;
+
+    final url = Uri.parse("$serverUrl/api/bus/update-location");
     try {
       final res = await http.post(
         url,
-        headers: {"Content-Type": "application/json"},
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
         body: jsonEncode({
-          "bus_id": widget.busId,
-          "latitude": location.latitude,
-          "longitude": location.longitude,
+          "busId": widget.busId,
+          "lat": location.latitude,
+          "lng": location.longitude,
         }),
       );
       if (res.statusCode != 200) {
