@@ -224,7 +224,10 @@ class _TicketPricingWidgetState extends State<TicketPricingWidget> {
     final price = route['price']?.toString() ?? '0.0';
     final capacity = route['capacity']?.toString() ?? '0';
     final sold = route['sold']?.toString() ?? '0';
-    final income = route['income']?.toStringAsFixed(2) ?? '0.00';
+    // Income is already calculated from actual reservations in the backend
+    final income = (route['income'] is num) 
+        ? (route['income'] as num).toStringAsFixed(2)
+        : (double.tryParse(route['income']?.toString() ?? '0') ?? 0.0).toStringAsFixed(2);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -353,7 +356,7 @@ class _TicketPricingWidgetState extends State<TicketPricingWidget> {
             runSpacing: 4,
             children: [
               TextButton.icon(
-                onPressed: () {},
+                onPressed: () => _showEditPriceDialog(route),
                 icon: const Icon(Icons.edit, size: 16),
                 label: const Text('Edit Price', style: TextStyle(fontSize: 12)),
               ),
@@ -381,5 +384,177 @@ class _TicketPricingWidgetState extends State<TicketPricingWidget> {
         ],
       ),
     );
+  }
+
+  Future<void> _showEditPriceDialog(Map<String, dynamic> route) async {
+    final routeId = route['routeId'] ?? '';
+    final routeName = route['route'] ?? '${route['start']} - ${route['destination']}';
+    final currentPrice = (route['price'] is num) 
+        ? (route['price'] as num).toDouble()
+        : (double.tryParse(route['price']?.toString() ?? '0') ?? 0.0);
+    final currentPriceDeluxe = route['priceDeluxe'] != null
+        ? ((route['priceDeluxe'] is num)
+            ? (route['priceDeluxe'] as num).toDouble()
+            : (double.tryParse(route['priceDeluxe']?.toString() ?? '0') ?? 0.0))
+        : null;
+    final currentPriceLuxury = route['priceLuxury'] != null
+        ? ((route['priceLuxury'] is num)
+            ? (route['priceLuxury'] as num).toDouble()
+            : (double.tryParse(route['priceLuxury']?.toString() ?? '0') ?? 0.0))
+        : null;
+
+    final priceController = TextEditingController(text: currentPrice.toStringAsFixed(2));
+    final priceDeluxeController = TextEditingController(
+      text: currentPriceDeluxe?.toStringAsFixed(2) ?? '',
+    );
+    final priceLuxuryController = TextEditingController(
+      text: currentPriceLuxury?.toStringAsFixed(2) ?? '',
+    );
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Route Price'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                routeName,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: priceController,
+                decoration: const InputDecoration(
+                  labelText: 'Standard Price (Rs)',
+                  border: OutlineInputBorder(),
+                  prefixText: 'Rs ',
+                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: priceDeluxeController,
+                decoration: const InputDecoration(
+                  labelText: 'Deluxe Price (Rs) - Optional',
+                  border: OutlineInputBorder(),
+                  prefixText: 'Rs ',
+                  helperText: 'Leave empty if not applicable',
+                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: priceLuxuryController,
+                decoration: const InputDecoration(
+                  labelText: 'Luxury Price (Rs) - Optional',
+                  border: OutlineInputBorder(),
+                  prefixText: 'Rs ',
+                  helperText: 'Leave empty if not applicable',
+                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final newPrice = double.tryParse(priceController.text);
+              final newPriceDeluxe = priceDeluxeController.text.isEmpty
+                  ? null
+                  : double.tryParse(priceDeluxeController.text);
+              final newPriceLuxury = priceLuxuryController.text.isEmpty
+                  ? null
+                  : double.tryParse(priceLuxuryController.text);
+
+              if (newPrice == null || newPrice <= 0) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please enter a valid standard price'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+
+              if (newPriceDeluxe != null && newPriceDeluxe <= 0) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Deluxe price must be greater than 0'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+
+              if (newPriceLuxury != null && newPriceLuxury <= 0) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Luxury price must be greater than 0'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+
+              Navigator.of(context).pop();
+              await _updateRoutePrice(
+                routeId: routeId,
+                price: newPrice,
+                priceDeluxe: newPriceDeluxe,
+                priceLuxury: newPriceLuxury,
+              );
+            },
+            child: const Text('Update'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _updateRoutePrice({
+    required String routeId,
+    required double price,
+    double? priceDeluxe,
+    double? priceLuxury,
+  }) async {
+    try {
+      await _adminService.updateRoutePrice(
+        routeId: routeId,
+        price: price,
+        priceDeluxe: priceDeluxe,
+        priceLuxury: priceLuxury,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Price updated successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // Refresh the data to show updated prices and recalculated stats
+        _loadPricingData();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update price: ${e.toString().replaceAll('Exception: ', '')}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }
