@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:waygo/services/admin_service.dart';
+import 'package:intl/intl.dart';
 
 class UsersWidget extends StatefulWidget {
   const UsersWidget({Key? key}) : super(key: key);
@@ -10,44 +12,54 @@ class UsersWidget extends StatefulWidget {
 class _UsersWidgetState extends State<UsersWidget> {
   String selectedRole = 'All Roles';
   String selectedStatus = 'All Status';
+  final AdminService _adminService = AdminService();
+  
+  List<dynamic> _users = [];
+  bool _isLoading = true;
+  String? _errorMessage;
 
-  final users = [
-    {
-      'name': 'Alice Johnson',
-      'email': 'alice@example.com',
-      'role': 'Passenger',
-      'status': 'Active',
-      'joined': '2025-01-15',
-    },
-    {
-      'name': 'Bob Smith',
-      'email': 'bob@example.com',
-      'role': 'Driver',
-      'status': 'Active',
-      'joined': '2024-11-20',
-    },
-    {
-      'name': 'Carol White',
-      'email': 'carol@example.com',
-      'role': 'Admin',
-      'status': 'Active',
-      'joined': '2024-08-10',
-    },
-    {
-      'name': 'David Brown',
-      'email': 'david@example.com',
-      'role': 'Passenger',
-      'status': 'Suspended',
-      'joined': '2025-02-05',
-    },
-    {
-      'name': 'Emma Wilson',
-      'email': 'emma@example.com',
-      'role': 'Passenger',
-      'status': 'Active',
-      'joined': '2025-03-12',
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadUsers();
+  }
+
+  Future<void> _loadUsers() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      String? userType;
+      if (selectedRole != 'All Roles') {
+        // Convert to lowercase to match backend expectations
+        userType = selectedRole.toLowerCase();
+      }
+
+      bool? isActive;
+      if (selectedStatus == 'Active') {
+        isActive = true;
+      } else if (selectedStatus == 'Suspended') {
+        isActive = false;
+      }
+
+      final users = await _adminService.getAllUsers(
+        userType: userType,
+        isActive: isActive,
+      );
+
+      setState(() {
+        _users = users;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString().replaceAll('Exception: ', '');
+        _isLoading = false;
+      });
+    }
+  }
 
   // Open a bottom sheet containing filter controls (for mobile compact header)
   void _openFilterSheet(BuildContext context) {
@@ -105,8 +117,8 @@ class _UsersWidgetState extends State<UsersWidget> {
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: () {
-                        // Apply filters logic here
                         Navigator.of(ctx).pop();
+                        _loadUsers();
                       },
                       icon: const Icon(Icons.check),
                       label: const Text('Apply'),
@@ -200,9 +212,12 @@ class _UsersWidgetState extends State<UsersWidget> {
                                             ),
                                       )
                                       .toList(),
-                              onChanged: (value) => setState(() {
-                                selectedRole = value ?? 'All Roles';
-                              }),
+                              onChanged: (value) {
+                                setState(() {
+                                  selectedRole = value ?? 'All Roles';
+                                });
+                                _loadUsers();
+                              },
                             ),
                             const SizedBox(width: 12),
                             // Status
@@ -216,9 +231,12 @@ class _UsersWidgetState extends State<UsersWidget> {
                                     ),
                                   )
                                   .toList(),
-                              onChanged: (value) => setState(() {
-                                selectedStatus = value ?? 'All Status';
-                              }),
+                              onChanged: (value) {
+                                setState(() {
+                                  selectedStatus = value ?? 'All Status';
+                                });
+                                _loadUsers();
+                              },
                             ),
                             const SizedBox(width: 12),
                             ElevatedButton.icon(
@@ -240,20 +258,104 @@ class _UsersWidgetState extends State<UsersWidget> {
 
           const SizedBox(height: 20),
 
-          // User Cards
-          Column(children: users.map((user) => _buildUserCard(user)).toList()),
+          // Loading, Error, or User Cards
+          if (_isLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(32.0),
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else if (_errorMessage != null)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.error_outline, size: 64, color: Colors.red.shade300),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Error loading users',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red.shade700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _errorMessage!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: _loadUsers,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else if (_users.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.people_outline, size: 64, color: Colors.grey.shade400),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No users found',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            Column(children: _users.map((user) => _buildUserCard(user)).toList()),
         ],
       ),
     );
   }
 
-  Widget _buildUserCard(Map<String, String> user) {
-    final roleColor = user['role'] == 'Admin'
+  Widget _buildUserCard(dynamic user) {
+    final userName = user['userName'] ?? 'Unknown';
+    final email = user['email'] ?? '';
+    final userType = user['userType'] ?? 'passenger';
+    final isActive = user['isActive'] ?? true;
+    final userId = user['_id'] ?? '';
+    final createdAt = user['createdAt'] ?? '';
+    
+    // Format role display
+    String roleDisplay = userType.substring(0, 1).toUpperCase() + userType.substring(1);
+    
+    // Format date
+    String joinedDate = 'Unknown';
+    if (createdAt != null && createdAt.isNotEmpty) {
+      try {
+        final date = DateTime.parse(createdAt);
+        joinedDate = DateFormat('yyyy-MM-dd').format(date);
+      } catch (e) {
+        joinedDate = createdAt.toString();
+      }
+    }
+
+    final roleColor = userType == 'admin'
         ? Colors.purple
-        : user['role'] == 'Driver'
+        : userType == 'driver'
         ? Colors.blue
         : Colors.green;
-    final statusColor = user['status'] == 'Active' ? Colors.green : Colors.red;
+    final statusColor = isActive ? Colors.green : Colors.red;
+    final statusText = isActive ? 'Active' : 'Suspended';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -274,7 +376,7 @@ class _UsersWidgetState extends State<UsersWidget> {
               backgroundColor: roleColor.withOpacity(0.2),
               radius: 28,
               child: Text(
-                user['name']![0],
+                userName.isNotEmpty ? userName[0].toUpperCase() : '?',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -287,7 +389,7 @@ class _UsersWidgetState extends State<UsersWidget> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  user['name']!,
+                  userName,
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -295,7 +397,7 @@ class _UsersWidgetState extends State<UsersWidget> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  user['email']!,
+                  email,
                   style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                 ),
                 const SizedBox(height: 8),
@@ -311,7 +413,7 @@ class _UsersWidgetState extends State<UsersWidget> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
-                        user['role']!,
+                        roleDisplay,
                         style: TextStyle(
                           color: roleColor,
                           fontWeight: FontWeight.bold,
@@ -321,7 +423,7 @@ class _UsersWidgetState extends State<UsersWidget> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Joined: ${user['joined']}',
+                      'Joined: $joinedDate',
                       style: TextStyle(
                         color: Colors.grey.shade500,
                         fontSize: 12,
@@ -339,7 +441,7 @@ class _UsersWidgetState extends State<UsersWidget> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                user['status']!,
+                statusText,
                 style: TextStyle(
                   color: statusColor,
                   fontWeight: FontWeight.bold,
@@ -354,32 +456,169 @@ class _UsersWidgetState extends State<UsersWidget> {
               children: [
                 IconButton(
                   icon: const Icon(Icons.edit, size: 20, color: Colors.blue),
-                  onPressed: () {},
+                  onPressed: () => _showEditDialog(user),
+                  tooltip: 'Edit User',
                 ),
                 IconButton(
                   icon: Icon(
-                    user['status'] == 'Active'
-                        ? Icons.block
-                        : Icons.check_circle,
+                    isActive ? Icons.block : Icons.check_circle,
                     size: 20,
-                    color: user['status'] == 'Active'
-                        ? Colors.red
-                        : Colors.green,
+                    color: isActive ? Colors.red : Colors.green,
                   ),
-                  onPressed: () {},
-                ),
-                IconButton(
-                  icon: const Icon(Icons.history, size: 20, color: Colors.grey),
-                  onPressed: () {},
+                  onPressed: () => _toggleUserStatus(userId, !isActive),
+                  tooltip: isActive ? 'Suspend User' : 'Activate User',
                 ),
                 IconButton(
                   icon: const Icon(Icons.delete, size: 20, color: Colors.red),
-                  onPressed: () {},
+                  onPressed: () => _confirmDeleteUser(userId, userName),
+                  tooltip: 'Delete User',
                 ),
               ],
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Future<void> _toggleUserStatus(String userId, bool newStatus) async {
+    try {
+      await _adminService.updateUserStatus(
+        userId: userId,
+        isActive: newStatus,
+      );
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              newStatus
+                  ? 'User activated successfully'
+                  : 'User suspended successfully',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+        _loadUsers();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update user status: ${e.toString().replaceAll('Exception: ', '')}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _confirmDeleteUser(String userId, String userName) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete User'),
+        content: Text('Are you sure you want to delete $userName? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await _adminService.deleteUser(userId);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('User deleted successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          _loadUsers();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to delete user: ${e.toString().replaceAll('Exception: ', '')}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _showEditDialog(dynamic user) async {
+    final userName = user['userName'] ?? '';
+    final email = user['email'] ?? '';
+    final phone = user['phone'] ?? '';
+    final isActive = user['isActive'] ?? true;
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit User'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Name: $userName'),
+              const SizedBox(height: 8),
+              Text('Email: $email'),
+              const SizedBox(height: 8),
+              Text('Phone: ${phone.isNotEmpty ? phone : 'Not provided'}'),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  const Text('Status: '),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: (isActive ? Colors.green : Colors.red).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      isActive ? 'Active' : 'Suspended',
+                      style: TextStyle(
+                        color: isActive ? Colors.green : Colors.red,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _toggleUserStatus(user['_id'], !isActive);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isActive ? Colors.red : Colors.green,
+              foregroundColor: Colors.white,
+            ),
+            child: Text(isActive ? 'Suspend User' : 'Activate User'),
+          ),
+        ],
       ),
     );
   }
