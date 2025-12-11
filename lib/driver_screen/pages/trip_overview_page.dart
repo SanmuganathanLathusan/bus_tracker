@@ -4,6 +4,7 @@ import 'package:waygo/utils/app_text_styles.dart';
 import 'package:waygo/driver_screen/widgets/route_assignment.dart';
 import 'package:waygo/services/driver_service.dart';
 import '../widgets/alert_banner.dart';
+import './live_map_page.dart';
 
 class TripOverviewPage extends StatefulWidget {
   final RouteAssignment? activeAssignment;
@@ -40,7 +41,8 @@ class _TripOverviewPageState extends State<TripOverviewPage> {
   }
 
   Future<void> _loadCurrentTrip() async {
-    if (widget.activeAssignment == null || !widget.activeAssignment!.isAccepted) {
+    if (widget.activeAssignment == null ||
+        !widget.activeAssignment!.isAccepted) {
       setState(() {
         _tripId = null;
         _tripStatus = null;
@@ -60,7 +62,9 @@ class _TripOverviewPageState extends State<TripOverviewPage> {
       if (mounted) {
         setState(() {
           _tripId = activeTrip.isEmpty ? null : activeTrip['_id']?.toString();
-          _tripStatus = activeTrip.isEmpty ? null : activeTrip['status']?.toString();
+          _tripStatus = activeTrip.isEmpty
+              ? null
+              : activeTrip['status']?.toString();
         });
       }
     } catch (e) {
@@ -81,7 +85,9 @@ class _TripOverviewPageState extends State<TripOverviewPage> {
 
     setState(() => _isLoading = true);
     try {
-      final result = await _driverService.startTrip(widget.activeAssignment!.id);
+      final result = await _driverService.startTrip(
+        widget.activeAssignment!.id,
+      );
       if (mounted) {
         setState(() {
           _tripId = result['trip']?['_id']?.toString();
@@ -114,7 +120,9 @@ class _TripOverviewPageState extends State<TripOverviewPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text("Complete Trip"),
-        content: const Text("Are you sure you want to mark this trip as completed?"),
+        content: const Text(
+          "Are you sure you want to mark this trip as completed?",
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -143,7 +151,7 @@ class _TripOverviewPageState extends State<TripOverviewPage> {
 
         // Get next pending assignment
         final nextAssignment = await _driverService.getNextPendingAssignment();
-        
+
         // Clear current assignment
         widget.onTripCompleted?.call(null);
 
@@ -152,7 +160,9 @@ class _TripOverviewPageState extends State<TripOverviewPage> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text("Next assignment available: ${nextAssignment.fromLocation} → ${nextAssignment.toLocation}"),
+                content: Text(
+                  "Next assignment available: ${nextAssignment.fromLocation} → ${nextAssignment.toLocation}",
+                ),
                 duration: const Duration(seconds: 4),
                 action: SnackBarAction(
                   label: "View",
@@ -182,10 +192,7 @@ class _TripOverviewPageState extends State<TripOverviewPage> {
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-      ),
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
     );
   }
 
@@ -271,20 +278,20 @@ class _TripOverviewPageState extends State<TripOverviewPage> {
                               color: _tripStatus == 'started'
                                   ? AppColors.accentSuccess
                                   : _tripStatus == 'paused'
-                                      ? Colors.orange
-                                      : assignment.isAccepted
-                                          ? Colors.blue
-                                          : Colors.grey,
+                                  ? Colors.orange
+                                  : assignment.isAccepted
+                                  ? Colors.blue
+                                  : Colors.grey,
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
                               _tripStatus == 'started'
                                   ? "Active"
                                   : _tripStatus == 'paused'
-                                      ? "Paused"
-                                      : assignment.isAccepted
-                                          ? "Accepted"
-                                          : "Pending",
+                                  ? "Paused"
+                                  : assignment.isAccepted
+                                  ? "Accepted"
+                                  : "Pending",
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w600,
@@ -357,7 +364,8 @@ class _TripOverviewPageState extends State<TripOverviewPage> {
                             ),
                           ),
                         )
-                      else if (_tripStatus == 'started' || _tripStatus == 'paused')
+                      else if (_tripStatus == 'started' ||
+                          _tripStatus == 'paused')
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton.icon(
@@ -390,10 +398,42 @@ class _TripOverviewPageState extends State<TripOverviewPage> {
 
               const SizedBox(height: 24),
 
+              // Live Location Sharing Button
+              if (_tripStatus == 'started' && assignment.busId != null)
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => LiveMapPage(
+                            busId: assignment.busId!,
+                            autoStart: true,
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.location_on),
+                    label: const Text("Share Live Location"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ),
+
+              const SizedBox(height: 24),
+
               // Alert Banner
               if (_tripStatus == 'started')
                 AlertBanner(
-                  message: "Trip is in progress. Complete the trip when finished.",
+                  message:
+                      "Trip is in progress. Complete the trip when finished.",
                   type: AlertType.info,
                 )
               else if (assignment.isAccepted && _tripStatus == null)

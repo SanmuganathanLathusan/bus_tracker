@@ -26,20 +26,27 @@ class NotificationService {
       query['isRead'] = 'false'; // only unread items
     }
 
-    final uri = Uri.parse(_baseUrl).replace(
-      queryParameters: query.isEmpty ? null : query,
-    );
+    final uri = Uri.parse(
+      _baseUrl,
+    ).replace(queryParameters: query.isEmpty ? null : query);
 
-    final response = await http.get(
-      uri,
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer $token",
-      },
-    ).timeout(_timeout);
+    print('📬 Fetching notifications: $uri');
+
+    final response = await http
+        .get(
+          uri,
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer $token",
+          },
+        )
+        .timeout(_timeout);
 
     final data = _decodeResponse(response);
     if (data is Map<String, dynamic>) {
+      final count = (data['notifications'] as List?)?.length ?? 0;
+      final unread = data['unreadCount'] ?? 0;
+      print('✅ Loaded $count notifications ($unread unread)');
       return data;
     }
     throw Exception('Unexpected notification payload');
@@ -53,10 +60,7 @@ class NotificationService {
   }
 
   Future<void> markAllAsRead() async {
-    await _authorizedRequest(
-      method: _HttpMethod.put,
-      path: "/read-all",
-    );
+    await _authorizedRequest(method: _HttpMethod.put, path: "/read-all");
   }
 
   Future<void> deleteNotification(String notificationId) async {
@@ -98,8 +102,9 @@ class NotificationService {
   }
 
   dynamic _decodeResponse(http.Response response, {bool allowEmpty = false}) {
-    final body =
-        response.body.isNotEmpty ? jsonDecode(response.body) : <String, dynamic>{};
+    final body = response.body.isNotEmpty
+        ? jsonDecode(response.body)
+        : <String, dynamic>{};
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return body;
@@ -117,4 +122,3 @@ class NotificationService {
 }
 
 enum _HttpMethod { get, put, delete }
-

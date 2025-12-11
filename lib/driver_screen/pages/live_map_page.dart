@@ -4,11 +4,20 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+
+// Add callback function type
+typedef LocationSharingCallback = void Function(bool isSharing);
 
 class LiveMapPage extends StatefulWidget {
   final String busId; /// Unique ID used to identify each bus
 
-  const LiveMapPage({Key? key, required this.busId}) : super(key: key);
+  const LiveMapPage({
+    Key? key,
+    required this.busId,
+    this.autoStart = false,
+    this.onLocationSharingUpdate, // Add callback parameter
+  }) : super(key: key);
 
   @override
   State<LiveMapPage> createState() => _LiveMapPageState();
@@ -95,6 +104,7 @@ class _LiveMapPageState extends State<LiveMapPage> {
   void _toggleSharing() {
     /// If already sharing → stop timer
     if (isSharing) {
+      // Stop sharing
       locationTimer?.cancel();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Stopped sharing location")),
@@ -108,6 +118,30 @@ class _LiveMapPageState extends State<LiveMapPage> {
     }
 
     setState(() => isSharing = !isSharing);
+
+    // Notify parent widget if callback is provided
+    widget.onLocationSharingUpdate?.call(isSharing);
+  }
+
+  Future<void> _toggleLocationSharing(bool isSharing) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+
+    if (token == null) return;
+
+    final url = Uri.parse("$serverUrl/api/bus/toggle-sharing");
+    try {
+      await http.post(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
+        body: jsonEncode({"busId": widget.busId, "isSharing": isSharing}),
+      );
+    } catch (e) {
+      debugPrint("Error toggling location sharing: $e");
+    }
   }
 
   // ============================================================
@@ -145,7 +179,10 @@ class _LiveMapPageState extends State<LiveMapPage> {
       /// POST request with JSON body
       final res = await http.post(
         url,
-        headers: {"Content-Type": "application/json"},
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
         body: jsonEncode({
           "bus_id": widget.busId,     /// Unique bus ID
           "latitude": location.latitude,

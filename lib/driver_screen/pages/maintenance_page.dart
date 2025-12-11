@@ -1,10 +1,22 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:waygo/utils/app_colors.dart';
 import 'package:waygo/utils/app_text_styles.dart';
+import 'package:waygo/services/maintenance_service.dart';
+import 'package:waygo/driver_screen/widgets/route_assignment.dart';
+import 'package:intl/intl.dart';
 
-class MaintenancePage extends StatelessWidget {
-  const MaintenancePage({Key? key}) : super(key: key);
+class MaintenancePage extends StatefulWidget {
+  final RouteAssignment? activeAssignment;
+  
+  const MaintenancePage({Key? key, this.activeAssignment}) : super(key: key);
 
+  @override
+  State<MaintenancePage> createState() => _MaintenancePageState();
+}
+
+class _MaintenancePageState extends State<MaintenancePage> {
   @override
   Widget build(BuildContext context) {
     // Main page with tabs (My Reports / New Report)
@@ -44,7 +56,7 @@ class MaintenancePage extends StatelessWidget {
               child: TabBarView(
                 children: [
                   MaintenanceReportsList(),
-                  NewMaintenanceReportForm(),
+                  NewMaintenanceReportForm(activeAssignment: widget.activeAssignment),
                 ],
               ),
             ),
@@ -60,6 +72,42 @@ class MaintenancePage extends StatelessWidget {
 
 class MaintenanceReportsList extends StatelessWidget {
   const MaintenanceReportsList({Key? key}) : super(key: key);
+
+  @override
+  State<MaintenanceReportsList> createState() => _MaintenanceReportsListState();
+}
+
+class _MaintenanceReportsListState extends State<MaintenanceReportsList> {
+  final MaintenanceService _maintenanceService = MaintenanceService();
+  bool _isLoading = true;
+  String? _error;
+  List<dynamic> _reports = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadReports();
+  }
+
+  Future<void> _loadReports() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final reports = await _maintenanceService.getDriverReports();
+      setState(() {
+        _reports = reports;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -87,7 +135,15 @@ class MaintenanceReportsList extends StatelessWidget {
           status: "Resolved",
           statusColor: Colors.green,
         ),
-      ],
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadReports,
+      child: ListView(
+        padding: const EdgeInsets.all(16.0),
+        children: _reports.map((report) => _buildReportCard(report)).toList(),
+      ),
     );
   }
 
@@ -132,7 +188,7 @@ class MaintenanceReportsList extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    status,
+                    statusLabel,
                     style: AppTextStyles.bodySmall.copyWith(
                       color: statusColor,
                       fontWeight: FontWeight.bold,
@@ -157,16 +213,12 @@ class MaintenanceReportsList extends StatelessWidget {
             // Action buttons (View Details / Follow Up)
             Row(
               children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () {},
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: AppColors.accentPrimary),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: const Text("View Details"),
+                Icon(Icons.directions_bus, size: 16, color: Colors.grey.shade600),
+                const SizedBox(width: 6),
+                Text(
+                  'Bus: $busInfo',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: Colors.grey.shade600,
                   ),
                 ),
 
@@ -183,16 +235,90 @@ class MaintenanceReportsList extends StatelessWidget {
                       ),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
-                    child: const Text("Follow Up"),
                   ),
                 ),
               ],
             ),
+            const SizedBox(height: 10),
+
+            // --- Issue Description ---
+            Text(
+              description,
+              style: AppTextStyles.subHeading.copyWith(
+                color: AppColors.textPrimary,
+              ),
+            ),
+
+            // --- Image if available ---
+            if (imageUrl != null && imageUrl.toString().isNotEmpty) ...[
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(
+                  'http://10.0.2.2:5000/$imageUrl',
+                  height: 150,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      height: 150,
+                      color: Colors.grey.shade200,
+                      child: const Center(
+                        child: Icon(Icons.broken_image, color: Colors.grey),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
+
+  String _getStatusLabel(String status) {
+    switch (status) {
+      case 'pending':
+        return 'Pending';
+      case 'received':
+        return 'Received';
+      case 'not_received':
+        return 'Not Received';
+      case 'resolved':
+        return 'Resolved';
+      case 'unsent':
+        return 'Draft';
+      default:
+        return status;
+    }
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'pending':
+        return Colors.orange;
+      case 'received':
+        return Colors.blue;
+      case 'not_received':
+        return Colors.red;
+      case 'resolved':
+        return Colors.green;
+      case 'unsent':
+        return Colors.grey;
+      default:
+        return Colors.grey;
+    }
+  }
+}
+
+class NewMaintenanceReportForm extends StatefulWidget {
+  final RouteAssignment? activeAssignment;
+  
+  const NewMaintenanceReportForm({Key? key, this.activeAssignment}) : super(key: key);
+
+  @override
+  State<NewMaintenanceReportForm> createState() => _NewMaintenanceReportFormState();
 }
 
 
@@ -323,6 +449,12 @@ class NewMaintenanceReportForm extends StatelessWidget {
                   ],
                 ),
               ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Please enter a description';
+                }
+                return null;
+              },
             ),
           ),
 
@@ -349,8 +481,47 @@ class NewMaintenanceReportForm extends StatelessWidget {
                 style: TextStyle(fontSize: 16),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showImageOptions() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Choose from gallery'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Take a photo'),
+              onTap: () {
+                Navigator.pop(context);
+                _takePhoto();
+              },
+            ),
+            if (_selectedImage != null)
+              ListTile(
+                leading: const Icon(Icons.delete_forever),
+                title: const Text('Remove photo'),
+                onTap: () {
+                  Navigator.pop(context);
+                  setState(() => _selectedImage = null);
+                },
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
       ),
     );
   }
