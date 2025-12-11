@@ -19,20 +19,25 @@ class MaintenancePage extends StatefulWidget {
 class _MaintenancePageState extends State<MaintenancePage> {
   @override
   Widget build(BuildContext context) {
+    // Main page with tabs (My Reports / New Report)
     return DefaultTabController(
       length: 2,
       child: Scaffold(
         backgroundColor: const Color.fromARGB(255, 150, 208, 245),
+
         body: Column(
           children: [
-            // --- Header ---
+
+            // Header + TabBar
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text("Maintenance & Reports", style: AppTextStyles.heading),
+
                   const SizedBox(height: 16),
+
                   const TabBar(
                     labelColor: Color.fromARGB(255, 6, 6, 173),
                     unselectedLabelColor: Color.fromARGB(255, 15, 11, 11),
@@ -46,7 +51,8 @@ class _MaintenancePageState extends State<MaintenancePage> {
               ),
             ),
 
-            Expanded(
+            // Page switching
+            const Expanded(
               child: TabBarView(
                 children: [
                   MaintenanceReportsList(),
@@ -61,7 +67,10 @@ class _MaintenancePageState extends State<MaintenancePage> {
   }
 }
 
-class MaintenanceReportsList extends StatefulWidget {
+
+// LIST OF USER'S PREVIOUS REPORTS
+
+class MaintenanceReportsList extends StatelessWidget {
   const MaintenanceReportsList({Key? key}) : super(key: key);
 
   @override
@@ -102,38 +111,29 @@ class _MaintenanceReportsListState extends State<MaintenanceReportsList> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_error != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text('Error: $_error', style: const TextStyle(color: Colors.red)),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _loadReports,
-              child: const Text('Retry'),
-            ),
-          ],
+    // Static list of sample reports (dummy data)
+    return ListView(
+      padding: const EdgeInsets.all(16.0),
+      children: [
+        _buildReportCard(
+          date: "Oct 31, 2025",
+          issue: "AC not working",
+          status: "Pending",
+          statusColor: Colors.orange,
         ),
-      );
-    }
 
-    if (_reports.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.description_outlined, size: 64, color: Colors.grey.shade400),
-            const SizedBox(height: 16),
-            Text(
-              'No reports yet',
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
-            ),
-          ],
+        _buildReportCard(
+          date: "Oct 29, 2025",
+          issue: "Tire replaced",
+          status: "Resolved",
+          statusColor: Colors.green,
+        ),
+
+        _buildReportCard(
+          date: "Oct 25, 2025",
+          issue: "Engine noise",
+          status: "Resolved",
+          statusColor: Colors.green,
         ),
       );
     }
@@ -147,47 +147,42 @@ class _MaintenanceReportsListState extends State<MaintenanceReportsList> {
     );
   }
 
-  Widget _buildReportCard(dynamic report) {
-    final date = report['createdAt'] != null
-        ? DateFormat('MMM dd, yyyy').format(DateTime.parse(report['createdAt']))
-        : 'Unknown date';
-    final issueType = report['issueType'] ?? 'other';
-    final issueTypeLabel = issueType.substring(0, 1).toUpperCase() + issueType.substring(1);
-    final description = report['description'] ?? 'No description';
-    final status = report['status'] ?? 'unsent';
-    final statusLabel = _getStatusLabel(status);
-    final statusColor = _getStatusColor(status);
-    final imageUrl = report['imageUrl'];
-    final busInfo = report['busId'] is Map
-        ? (report['busId']['busNumber'] ?? report['busId']['busName'] ?? 'Unknown Bus')
-        : 'Unknown Bus';
-
+  // Card for each maintenance report
+  Widget _buildReportCard({
+    required String date,
+    required String issue,
+    required String status,
+    required Color statusColor,
+  }) {
     return Card(
       elevation: 3,
       shadowColor: AppColors.shadowLight,
       color: AppColors.backgroundSecondary,
       margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+
       child: Padding(
         padding: const EdgeInsets.all(16.0),
+
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // --- Date & Status ---
+
+            // Date + Status Row
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
                   date,
-                  style: AppTextStyles.body.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: AppTextStyles.body.copyWith(fontWeight: FontWeight.bold),
                 ),
+
+                // Status label
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: statusColor.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(12),
@@ -202,9 +197,20 @@ class _MaintenanceReportsListState extends State<MaintenanceReportsList> {
                 ),
               ],
             ),
+
             const SizedBox(height: 10),
 
-            // --- Bus Info ---
+            // Issue name
+            Text(
+              issue,
+              style: AppTextStyles.subHeading.copyWith(
+                color: AppColors.textPrimary,
+              ),
+            ),
+
+            const SizedBox(height: 15),
+
+            // Action buttons (View Details / Follow Up)
             Row(
               children: [
                 Icon(Icons.directions_bus, size: 16, color: Colors.grey.shade600),
@@ -215,19 +221,19 @@ class _MaintenanceReportsListState extends State<MaintenanceReportsList> {
                     color: Colors.grey.shade600,
                   ),
                 ),
-                const SizedBox(width: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    issueTypeLabel,
-                    style: TextStyle(
-                      color: Colors.blue.shade700,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
+
+                const SizedBox(width: 10),
+
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {},
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.accentPrimary,
+                      foregroundColor: AppColors.textLight,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                   ),
                 ),
@@ -315,232 +321,132 @@ class NewMaintenanceReportForm extends StatefulWidget {
   State<NewMaintenanceReportForm> createState() => _NewMaintenanceReportFormState();
 }
 
-class _NewMaintenanceReportFormState extends State<NewMaintenanceReportForm> {
-  final MaintenanceService _maintenanceService = MaintenanceService();
-  final _formKey = GlobalKey<FormState>();
-  final _descriptionController = TextEditingController();
-  final ImagePicker _picker = ImagePicker();
-  
-  String? _selectedIssueType;
-  File? _selectedImage;
-  String? _busId;
-  bool _isSubmitting = false;
 
-  @override
-  void initState() {
-    super.initState();
-    // Get busId from active assignment
-    _busId = widget.activeAssignment?.busId;
-  }
+// NEW MAINTENANCE REPORT FORM
 
-  @override
-  void dispose() {
-    _descriptionController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _pickImage() async {
-    try {
-      final XFile? picked = await _picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 75,
-        maxWidth: 1500,
-        maxHeight: 1500,
-      );
-      if (picked != null) {
-        setState(() => _selectedImage = File(picked.path));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error picking image: $e')),
-        );
-      }
-    }
-  }
-
-  Future<void> _takePhoto() async {
-    try {
-      final XFile? picked = await _picker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 75,
-        maxWidth: 1500,
-        maxHeight: 1500,
-      );
-      if (picked != null) {
-        setState(() => _selectedImage = File(picked.path));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error taking photo: $e')),
-        );
-      }
-    }
-  }
-
-  Future<void> _submitReport() async {
-    if (!_formKey.currentState!.validate()) return;
-    if (_selectedIssueType == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select an issue type')),
-      );
-      return;
-    }
-    if (_busId == null || _busId!.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bus ID is required. Please ensure you have an active assignment.')),
-      );
-      return;
-    }
-
-    setState(() => _isSubmitting = true);
-
-    try {
-      final result = await _maintenanceService.createReport(
-        busId: _busId!,
-        issueType: _selectedIssueType!,
-        description: _descriptionController.text.trim(),
-        imageFile: _selectedImage,
-      );
-
-      // Submit the report to admin
-      if (result['report'] != null && result['report']['_id'] != null) {
-        await _maintenanceService.submitReport(result['report']['_id'].toString());
-      }
-
-      if (!mounted) return;
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Report submitted successfully'),
-          backgroundColor: Colors.green,
-        ),
-      );
-
-      // Reset form
-      _formKey.currentState!.reset();
-      _descriptionController.clear();
-      setState(() {
-        _selectedIssueType = null;
-        _selectedImage = null;
-      });
-
-      // Refresh reports list (parent widget should handle this)
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to submit report: ${e.toString().replaceAll('Exception: ', '')}'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
-    }
-  }
+class NewMaintenanceReportForm extends StatelessWidget {
+  const NewMaintenanceReportForm({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return Form(
-      key: _formKey,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Submit New Report", style: AppTextStyles.subHeading),
-            if (_busId == null) ...[
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.orange.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.orange.shade200),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline, color: Colors.orange.shade700),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'No active bus assignment. Please wait for an assignment to submit a report.',
-                        style: TextStyle(color: Colors.orange.shade700, fontSize: 12),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+    // Scrollable form for submitting new issues
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+
+          Text("Submit New Report", style: AppTextStyles.subHeading),
+          const SizedBox(height: 16),
+
+          // Issue type section
+          Text(
+            "Issue Type",
+            style: AppTextStyles.body.copyWith(fontWeight: FontWeight.bold),
+          ),
+
+          const SizedBox(height: 8),
+
+          DropdownButtonFormField<String>(
+            items: const [
+              DropdownMenuItem(value: "engine", child: Text("Engine")),
+              DropdownMenuItem(value: "brakes", child: Text("Brakes")),
+              DropdownMenuItem(value: "tires", child: Text("Tires")),
+              DropdownMenuItem(value: "ac", child: Text("AC / Cooling")),
+              DropdownMenuItem(value: "electrical", child: Text("Electrical")),
+              DropdownMenuItem(value: "other", child: Text("Other")),
             ],
-            const SizedBox(height: 16),
+            onChanged: (value) {},
 
-            // --- Issue Type Dropdown ---
-            Text(
-              "Issue Type",
-              style: AppTextStyles.body.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              value: _selectedIssueType,
-              items: const [
-                DropdownMenuItem(value: "engine", child: Text("Engine")),
-                DropdownMenuItem(value: "brakes", child: Text("Brakes")),
-                DropdownMenuItem(value: "tires", child: Text("Tires")),
-                DropdownMenuItem(value: "ac", child: Text("AC / Cooling")),
-                DropdownMenuItem(value: "electrical", child: Text("Electrical")),
-                DropdownMenuItem(value: "other", child: Text("Other")),
-              ],
-              onChanged: (value) => setState(() => _selectedIssueType = value),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: AppColors.backgroundSecondary,
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(
-                    color: AppColors.accentPrimary,
-                    width: 1.5,
-                  ),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 14,
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: AppColors.backgroundSecondary,
+
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(
+                  color: AppColors.accentPrimary,
+                  width: 1.5,
                 ),
               ),
-              validator: (value) => value == null ? 'Please select an issue type' : null,
-            ),
 
-            const SizedBox(height: 16),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
 
-            // --- Description ---
-            Text(
-              "Description",
-              style: AppTextStyles.body.copyWith(fontWeight: FontWeight.bold),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 14,
+              ),
             ),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _descriptionController,
-              maxLines: 4,
-              decoration: InputDecoration(
-                hintText: "Describe the issue in detail...",
-                filled: true,
-                fillColor: AppColors.backgroundSecondary,
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(
-                    color: AppColors.accentPrimary,
-                    width: 1.5,
-                  ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Description box
+          Text(
+            "Description",
+            style: AppTextStyles.body.copyWith(fontWeight: FontWeight.bold),
+          ),
+
+          const SizedBox(height: 8),
+
+          TextFormField(
+            maxLines: 4,
+            decoration: InputDecoration(
+              hintText: "Describe the issue in detail...",
+              filled: true,
+              fillColor: AppColors.backgroundSecondary,
+
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(
+                  color: AppColors.accentPrimary,
+                  width: 1.5,
                 ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Image upload area
+          Text(
+            "Upload Photo (Optional)",
+            style: AppTextStyles.body.copyWith(fontWeight: FontWeight.bold),
+          ),
+
+          const SizedBox(height: 8),
+
+          Card(
+            elevation: 2,
+            color: AppColors.backgroundSecondary,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: Colors.grey.shade300),
+            ),
+
+            child: InkWell(
+              onTap: () {},
+              borderRadius: BorderRadius.circular(12),
+
+              child: const SizedBox(
+                height: 150,
+
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.add_photo_alternate, size: 40, color: Colors.grey),
+                    SizedBox(height: 8),
+                    Text("Tap to add photo", style: TextStyle(color: Colors.grey)),
+                  ],
                 ),
               ),
               validator: (value) {
@@ -550,96 +456,29 @@ class _NewMaintenanceReportFormState extends State<NewMaintenanceReportForm> {
                 return null;
               },
             ),
+          ),
 
-            const SizedBox(height: 16),
+          const SizedBox(height: 24),
 
-            // --- Image Upload ---
-            Text(
-              "Upload Photo (Optional)",
-              style: AppTextStyles.body.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Card(
-              elevation: 2,
-              color: AppColors.backgroundSecondary,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(color: Colors.grey.shade300),
-              ),
-              child: InkWell(
-                onTap: () => _showImageOptions(),
-                borderRadius: BorderRadius.circular(12),
-                child: SizedBox(
-                  height: 150,
-                  child: _selectedImage != null
-                      ? Stack(
-                          children: [
-                            Image.file(
-                              _selectedImage!,
-                              width: double.infinity,
-                              height: 150,
-                              fit: BoxFit.cover,
-                            ),
-                            Positioned(
-                              top: 8,
-                              right: 8,
-                              child: IconButton(
-                                icon: const Icon(Icons.close, color: Colors.white),
-                                onPressed: () => setState(() => _selectedImage = null),
-                                style: IconButton.styleFrom(
-                                  backgroundColor: Colors.black54,
-                                ),
-                              ),
-                            ),
-                          ],
-                        )
-                      : const Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.add_photo_alternate,
-                              size: 40,
-                              color: Colors.grey,
-                            ),
-                            SizedBox(height: 8),
-                            Text(
-                              "Tap to add photo",
-                              style: TextStyle(color: Colors.grey),
-                            ),
-                          ],
-                        ),
+          // Submit button
+          
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () {},
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.accentPrimary,
+                foregroundColor: AppColors.textLight,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
                 ),
               ),
-            ),
 
-            const SizedBox(height: 24),
-
-            // --- Submit Button ---
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _busId == null || _isSubmitting ? null : _submitReport,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.accentPrimary,
-                  foregroundColor: AppColors.textLight,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: _isSubmitting
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text(
-                        "Submit Report",
-                        style: TextStyle(fontSize: 16),
-                      ),
+              child: const Text(
+                "Submit Report",
+                style: TextStyle(fontSize: 16),
               ),
             ),
           ],
@@ -687,3 +526,5 @@ class _NewMaintenanceReportFormState extends State<NewMaintenanceReportForm> {
     );
   }
 }
+
+

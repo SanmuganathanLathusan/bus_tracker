@@ -10,10 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 typedef LocationSharingCallback = void Function(bool isSharing);
 
 class LiveMapPage extends StatefulWidget {
-  final String busId; // Unique bus ID
-  final bool autoStart; // Auto-start location sharing
-  final LocationSharingCallback?
-  onLocationSharingUpdate; // Add callback parameter
+  final String busId; /// Unique ID used to identify each bus
 
   const LiveMapPage({
     Key? key,
@@ -27,32 +24,39 @@ class LiveMapPage extends StatefulWidget {
 }
 
 class _LiveMapPageState extends State<LiveMapPage> {
+  // Completer is used to store the Google Map controller asynchronously
   final Completer<GoogleMapController> _controller = Completer();
-  final String serverUrl = "http://10.0.2.2:5000"; // ✅ Update to match backend
+
+  // Backend API URL (10.0.2.2 is Android Emulator's localhost)
+  final String serverUrl = "http://10.0.2.2:5000";
+
+  // Stores the current GPS position of the bus
   LatLng? currentPos;
+
+  // Shows if currently sharing location or not
   bool isSharing = false;
+
+  // Timer to send location every 5 seconds
   Timer? locationTimer;
 
   @override
   void initState() {
     super.initState();
-    _checkPermissions().then((_) {
-      if (widget.autoStart && currentPos != null && !isSharing) {
-        // Auto-start sharing if requested and not already sharing
-        _toggleSharing();
-      }
-    });
+    _checkPermissions();  /// On startup, check GPS permission and get initial location
   }
 
   @override
   void dispose() {
-    locationTimer?.cancel();
+    locationTimer?.cancel(); /// Stop periodic timer when page is closed
     super.dispose();
   }
-
-  // -------------------- LOCATION PERMISSION --------------------
+  // ============================================================
+  //    LOCATION PERMISSION CHECK + INITIAL GPS POSITION
+  // ============================================================
   Future<void> _checkPermissions() async {
+    /// Check if GPS hardware is turned ON
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+
     if (!serviceEnabled) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please enable location services")),
@@ -60,9 +64,13 @@ class _LiveMapPageState extends State<LiveMapPage> {
       return;
     }
 
+    /// Check if app has permission to access GPS
     LocationPermission permission = await Geolocator.checkPermission();
+
+    /// Asking permission if denied
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
+
       if (permission == LocationPermission.denied) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Location permission denied")),
@@ -71,49 +79,44 @@ class _LiveMapPageState extends State<LiveMapPage> {
       }
     }
 
+    /// Permission denied forever (User must change from phone settings)
     if (permission == LocationPermission.deniedForever) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            "Location permissions are permanently denied. Enable them in settings.",
+            "Location permissions permanently denied. Enable them from settings.",
           ),
         ),
       );
       return;
     }
 
-    // Get initial position
+    /// If permission granted → get initial GPS location
     Position pos = await Geolocator.getCurrentPosition(
       desiredAccuracy: LocationAccuracy.best,
     );
+
     setState(() => currentPos = LatLng(pos.latitude, pos.longitude));
   }
-
-  // -------------------- START / STOP SHARING --------------------
-  void _toggleSharing() async {
+  // ============================================================
+  //    START / STOP SHARING BUTTON
+  // ============================================================
+  void _toggleSharing() {
+    /// If already sharing → stop timer
     if (isSharing) {
       // Stop sharing
       locationTimer?.cancel();
-
-      // Notify server that location sharing has stopped
-      await _toggleLocationSharing(false);
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Stopped sharing location")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Stopped sharing location")),
+      );
     } else {
-      // Start sharing
+      /// If not sharing → start sending location
       _startSendingLocation();
-
-      // Notify server that location sharing has started
-      await _toggleLocationSharing(true);
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Started sharing location")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Started sharing location")),
+      );
     }
 
-    // Update UI immediately
     setState(() => isSharing = !isSharing);
 
     // Notify parent widget if callback is provided
@@ -141,32 +144,39 @@ class _LiveMapPageState extends State<LiveMapPage> {
     }
   }
 
-  // -------------------- SEND LOCATION TO SERVER --------------------
+  // ============================================================
+  //    SEND LOCATION EVERY 5 SECONDS TO BACKEND
+  // ============================================================
   void _startSendingLocation() {
+    /// Timer triggers every 5 seconds
     locationTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
       try {
+        /// Get new GPS coordinates
         Position pos = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.best,
         );
+
         currentPos = LatLng(pos.latitude, pos.longitude);
         setState(() {});
+
+        /// Move Google Map camera to bus's new location
         _moveCamera(currentPos!);
 
+        /// Send coordinates to server
         await _sendLocationToServer(currentPos!);
       } catch (e) {
         debugPrint("Error updating location: $e");
       }
     });
   }
-
+  // ============================================================
+  //    API CALL (POST REQUEST) → UPDATE BUS LOCATION
+  // ============================================================
   Future<void> _sendLocationToServer(LatLng location) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    final url = Uri.parse("$serverUrl/api/location/update");
 
-    if (token == null) return;
-
-    final url = Uri.parse("$serverUrl/api/bus/update-location");
     try {
+      /// POST request with JSON body
       final res = await http.post(
         url,
         headers: {
@@ -174,11 +184,13 @@ class _LiveMapPageState extends State<LiveMapPage> {
           "Authorization": "Bearer $token",
         },
         body: jsonEncode({
-          "busId": widget.busId,
-          "lat": location.latitude,
-          "lng": location.longitude,
+          "bus_id": widget.busId,     /// Unique bus ID
+          "latitude": location.latitude,
+          "longitude": location.longitude,
         }),
       );
+
+      /// 200 = success, otherwise log error
       if (res.statusCode != 200) {
         debugPrint("Server error: ${res.body}");
       }
@@ -187,13 +199,20 @@ class _LiveMapPageState extends State<LiveMapPage> {
     }
   }
 
-  // -------------------- CAMERA FOLLOWING --------------------
+  // ============================================================
+  //    CAMERA FOLLOW THE BUS
+  // ============================================================
   Future<void> _moveCamera(LatLng target) async {
+    /// Wait for Google Map to be created
     final GoogleMapController mapController = await _controller.future;
+
+    /// Smooth camera animation to updated position
     mapController.animateCamera(CameraUpdate.newLatLng(target));
   }
 
-  // -------------------- UI --------------------
+  // ============================================================
+  //    UI SECTION – MAP + BUTTON
+  // ============================================================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -201,18 +220,25 @@ class _LiveMapPageState extends State<LiveMapPage> {
         title: Text("Live Map - ${widget.busId}"),
         backgroundColor: const Color.fromARGB(255, 150, 208, 245),
       ),
+
+      /// Show loading spinner until GPS position is ready
       body: currentPos == null
           ? const Center(child: CircularProgressIndicator())
           : Stack(
               children: [
+                /// MAIN GOOGLE MAP
                 GoogleMap(
                   onMapCreated: (controller) =>
                       _controller.complete(controller),
+
                   initialCameraPosition: CameraPosition(
                     target: currentPos!,
                     zoom: 15.0,
                   ),
+                  /// Allow phone to show blue dot location
                   myLocationEnabled: true,
+
+                  /// Show bus marker on the map
                   markers: {
                     Marker(
                       markerId: MarkerId(widget.busId),
@@ -224,22 +250,26 @@ class _LiveMapPageState extends State<LiveMapPage> {
                     ),
                   },
                 ),
+
+                /// START / STOP SHARING BUTTON
                 Positioned(
                   bottom: 25,
                   left: 20,
                   right: 20,
                   child: ElevatedButton(
                     onPressed: _toggleSharing,
+
+                    /// Button theme changes depending on state
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: isSharing
-                          ? Colors.redAccent
-                          : Colors.green,
+                      backgroundColor:
+                          isSharing ? Colors.redAccent : Colors.green,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                       elevation: 6,
                     ),
+
                     child: Text(
                       isSharing ? "Stop Sharing" : "Start Sharing",
                       style: const TextStyle(
@@ -255,3 +285,5 @@ class _LiveMapPageState extends State<LiveMapPage> {
     );
   }
 }
+
+
