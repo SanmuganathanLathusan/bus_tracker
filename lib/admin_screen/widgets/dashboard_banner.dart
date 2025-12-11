@@ -3,7 +3,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:waygo/services/api_service.dart';
 
 class DashboardBanner extends StatelessWidget {
-  const DashboardBanner({Key? key}) : super(key: key);
+  final VoidCallback? onProfileTap;
+
+  const DashboardBanner({Key? key, this.onProfileTap}) : super(key: key);
 
   // ---------------------- LOGOUT HANDLER ----------------------
   Future<void> _confirmAndLogout(BuildContext context) async {
@@ -22,7 +24,9 @@ class DashboardBanner extends StatelessWidget {
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             child: const Text("Logout"),
           ),
@@ -42,8 +46,10 @@ class DashboardBanner extends StatelessWidget {
 
       // navigate & clear history using ROOT navigator
       if (context.mounted) {
-        Navigator.of(context, rootNavigator: true)
-            .pushNamedAndRemoveUntil('/welcome', (route) => false);
+        Navigator.of(
+          context,
+          rootNavigator: true,
+        ).pushNamedAndRemoveUntil('/welcome', (route) => false);
       }
     }
   }
@@ -135,17 +141,25 @@ class DashboardBanner extends StatelessWidget {
                       onSelected: (value) {
                         if (value == 'logout') {
                           _confirmAndLogout(context);
+                        } else if (value == 'profile') {
+                          onProfileTap?.call();
                         }
                       },
                       offset: const Offset(0, 48),
                       color: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       itemBuilder: (context) => <PopupMenuEntry<String>>[
                         PopupMenuItem<String>(
                           value: 'profile',
                           child: Row(
                             children: const [
-                              Icon(Icons.person, size: 18, color: Colors.black54),
+                              Icon(
+                                Icons.person,
+                                size: 18,
+                                color: Colors.black54,
+                              ),
                               SizedBox(width: 8),
                               Text('Profile'),
                             ],
@@ -156,7 +170,11 @@ class DashboardBanner extends StatelessWidget {
                           value: 'logout',
                           child: Row(
                             children: const [
-                              Icon(Icons.logout_rounded, size: 18, color: Colors.black54),
+                              Icon(
+                                Icons.logout_rounded,
+                                size: 18,
+                                color: Colors.black54,
+                              ),
                               SizedBox(width: 8),
                               Text('Logout'),
                             ],
@@ -192,13 +210,29 @@ class DashboardBanner extends StatelessWidget {
               childAspectRatio: 1.7,
               children: [
                 _buildStatCard(
-                  'Total Registered Users', '2,847', Icons.people, Colors.purple),
+                  'Total Registered Users',
+                  '2,847',
+                  Icons.people,
+                  Colors.purple,
+                ),
                 _buildStatCard(
-                  'Active Buses', '42', Icons.directions_bus, Colors.green),
+                  'Active Buses',
+                  '42',
+                  Icons.directions_bus,
+                  Colors.green,
+                ),
                 _buildStatCard(
-                  'Tickets Sold Today', '156', Icons.confirmation_number, Colors.orange),
+                  'Tickets Sold Today',
+                  '156',
+                  Icons.confirmation_number,
+                  Colors.orange,
+                ),
                 _buildStatCard(
-                  'Total Tickets', '12,458', Icons.receipt_long, Colors.blue),
+                  'Total Tickets',
+                  '12,458',
+                  Icons.receipt_long,
+                  Colors.blue,
+                ),
               ],
             ),
           ],

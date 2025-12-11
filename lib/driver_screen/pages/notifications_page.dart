@@ -96,9 +96,9 @@ class _NotificationsPageState extends State<NotificationsPage>
 
   void _showErrorSnack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   String _formatTimestamp(String? raw) {
@@ -166,7 +166,10 @@ class _NotificationsPageState extends State<NotificationsPage>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text("Notifications & Alerts", style: AppTextStyles.heading),
+                    Text(
+                      "Notifications & Alerts",
+                      style: AppTextStyles.heading,
+                    ),
                     if (_unreadCount > 0)
                       Chip(
                         backgroundColor: Colors.red.shade100,
@@ -185,10 +188,13 @@ class _NotificationsPageState extends State<NotificationsPage>
                       TabBar(
                         controller: _tabController,
                         labelColor: const Color.fromARGB(255, 6, 6, 173),
-                        unselectedLabelColor:
-                            const Color.fromARGB(255, 15, 11, 11),
-                        indicatorColor:
-                            const Color.fromARGB(255, 89, 147, 240),
+                        unselectedLabelColor: const Color.fromARGB(
+                          255,
+                          15,
+                          11,
+                          11,
+                        ),
+                        indicatorColor: const Color.fromARGB(255, 89, 147, 240),
                         tabs: const [
                           Tab(text: "All"),
                           Tab(text: "Alerts"),
@@ -200,7 +206,9 @@ class _NotificationsPageState extends State<NotificationsPage>
                         children: [
                           Expanded(
                             child: ElevatedButton.icon(
-                              onPressed: _unreadCount == 0 ? null : _markAllAsRead,
+                              onPressed: _unreadCount == 0
+                                  ? null
+                                  : _markAllAsRead,
                               icon: const Icon(Icons.mark_email_read),
                               label: const Text("Mark All Read"),
                               style: ElevatedButton.styleFrom(
@@ -210,8 +218,9 @@ class _NotificationsPageState extends State<NotificationsPage>
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 elevation: 0,
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 12),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
                               ),
                             ),
                           ),
@@ -239,8 +248,9 @@ class _NotificationsPageState extends State<NotificationsPage>
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 elevation: 0,
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 12),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
                               ),
                             ),
                           ),
@@ -253,9 +263,7 @@ class _NotificationsPageState extends State<NotificationsPage>
             ),
           ),
           const Divider(height: 1, color: Color(0xFFE0E0E0)),
-          Expanded(
-            child: _buildBody(),
-          ),
+          Expanded(child: _buildBody()),
         ],
       ),
     );
@@ -386,9 +394,7 @@ class _NotificationsPageState extends State<NotificationsPage>
             const SizedBox(height: 12),
             Text(
               message,
-              style: AppTextStyles.body.copyWith(
-                color: AppColors.textPrimary,
-              ),
+              style: AppTextStyles.body.copyWith(color: AppColors.textPrimary),
             ),
             if (metadata is Map && metadata.isNotEmpty) ...[
               const SizedBox(height: 12),
@@ -399,8 +405,8 @@ class _NotificationsPageState extends State<NotificationsPage>
                     .map<Widget>(
                       (entry) => Chip(
                         label: Text("${entry.key}: ${entry.value}"),
-                        backgroundColor:
-                            AppColors.backgroundSecondary.withOpacity(0.6),
+                        backgroundColor: AppColors.backgroundSecondary
+                            .withOpacity(0.6),
                       ),
                     )
                     .toList(),

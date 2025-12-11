@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LiveTrackingWidget extends StatefulWidget {
   const LiveTrackingWidget({Key? key}) : super(key: key);
@@ -19,17 +20,94 @@ class _LiveTrackingWidgetState extends State<LiveTrackingWidget> {
   Set<Marker> markers = {};
   final Completer<GoogleMapController> _controller = Completer();
   LatLng initialPosition = const LatLng(6.7071, 80.3565); // Default: Ratnapura
+  List<Map<String, dynamic>> buses = []; // Store bus data
 
   @override
   void initState() {
     super.initState();
     _startFetchingLocations();
+    _fetchAllBuses(); // Fetch all buses initially
   }
 
   @override
   void dispose() {
     _locationTimer?.cancel();
     super.dispose();
+  }
+
+  // Fetch all buses from server
+  Future<void> _fetchAllBuses() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+
+    if (token == null) return;
+
+    final url = Uri.parse("$serverUrl/api/bus/admin/all");
+    try {
+      final res = await http.get(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
+      );
+
+      if (res.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(res.body);
+        List<Map<String, dynamic>> busList = [];
+
+        for (var bus in data) {
+          if (bus is Map<String, dynamic>) {
+            busList.add({
+              'id': bus['_id'] ?? '',
+              'busNumber': bus['busNumber'] ?? 'Unknown',
+              'busName': bus['busName'] ?? 'Unknown Bus',
+              'driver': bus['driverId'] is Map
+                  ? bus['driverId']['userName']
+                  : 'Unassigned',
+              'status': _getStatusFromCondition(bus['conditionStatus']),
+              'color': _getColorFromStatus(
+                _getStatusFromCondition(bus['conditionStatus']),
+              ),
+              'isLocationSharing': bus['isLocationSharing'] ?? false,
+            });
+          }
+        }
+
+        setState(() {
+          buses = busList;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error fetching buses: $e");
+    }
+  }
+
+  String _getStatusFromCondition(String? condition) {
+    switch (condition) {
+      case 'workable':
+        return 'On Route';
+      case 'maintenance':
+        return 'Maintenance';
+      case 'non_workable':
+        return 'Out of Service';
+      default:
+        return 'Unknown';
+    }
+  }
+
+  Color _getColorFromStatus(String status) {
+    switch (status) {
+      case 'On Route':
+        return Colors.green;
+      case 'Delayed':
+        return Colors.orange;
+      case 'Maintenance':
+      case 'Out of Service':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
   }
 
   // Fetch all bus locations from server
@@ -40,9 +118,21 @@ class _LiveTrackingWidgetState extends State<LiveTrackingWidget> {
   }
 
   Future<void> _fetchBusLocations() async {
-    final url = Uri.parse("$serverUrl/api/location/all");
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+
+    if (token == null) return;
+
+    final url = Uri.parse("$serverUrl/api/bus/admin/locations");
     try {
-      final res = await http.get(url);
+      final res = await http.get(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
+      );
+
       if (res.statusCode == 200) {
         final List<dynamic> data = jsonDecode(res.body);
         Map<String, LatLng> newLocations = {};
@@ -50,16 +140,17 @@ class _LiveTrackingWidgetState extends State<LiveTrackingWidget> {
 
         for (var bus in data) {
           String busId = bus['bus_id'];
+          String busNumber = bus['busNumber'];
           double lat = bus['latitude'];
           double lng = bus['longitude'];
           LatLng position = LatLng(lat, lng);
 
-          newLocations[busId] = position;
+          newLocations[busNumber] = position;
           newMarkers.add(
             Marker(
               markerId: MarkerId(busId),
               position: position,
-              infoWindow: InfoWindow(title: "Bus $busId"),
+              infoWindow: InfoWindow(title: "Bus $busNumber"),
               icon: BitmapDescriptor.defaultMarkerWithHue(
                 BitmapDescriptor.hueAzure,
               ),
@@ -100,7 +191,10 @@ class _LiveTrackingWidgetState extends State<LiveTrackingWidget> {
                       Expanded(flex: 2, child: _buildMapSection(context)),
                       const SizedBox(width: 16),
                       Expanded(
-                        child: BusTrackingSidebar(busLocations: busLocations),
+                        child: BusTrackingSidebar(
+                          busLocations: busLocations,
+                          buses: buses,
+                        ),
                       ),
                     ],
                   ),
@@ -110,7 +204,10 @@ class _LiveTrackingWidgetState extends State<LiveTrackingWidget> {
                   children: [
                     _buildMapSection(context),
                     const SizedBox(height: 16),
-                    BusTrackingSidebar(busLocations: busLocations),
+                    BusTrackingSidebar(
+                      busLocations: busLocations,
+                      buses: buses,
+                    ),
                   ],
                 ),
         ),
@@ -199,51 +296,23 @@ class _LiveTrackingWidgetState extends State<LiveTrackingWidget> {
 
 class BusTrackingSidebar extends StatelessWidget {
   final Map<String, LatLng> busLocations;
+  final List<Map<String, dynamic>> buses;
 
-  const BusTrackingSidebar({Key? key, required this.busLocations})
-    : super(key: key);
+  const BusTrackingSidebar({
+    Key? key,
+    required this.busLocations,
+    required this.buses,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final buses = [
-      {
-        'id': 'Bus #101',
-        'route': 'Route 5',
-        'status': 'On Route',
-        'color': Colors.green,
-        'driver': 'John Doe',
-        'updated': '1 min ago',
-      },
-      {
-        'id': 'Bus #205',
-        'route': 'Route 12',
-        'status': 'Delayed',
-        'color': Colors.orange,
-        'driver': 'Jane Smith',
-        'updated': '3 min ago',
-      },
-      {
-        'id': 'Bus #309',
-        'route': 'Route 8',
-        'status': 'On Route',
-        'color': Colors.green,
-        'driver': 'Mike Johnson',
-        'updated': '2 min ago',
-      },
-      {
-        'id': 'Bus #412',
-        'route': 'Route 3',
-        'status': 'Maintenance',
-        'color': Colors.red,
-        'driver': 'Sarah Williams',
-        'updated': '25 min ago',
-      },
-    ];
-
     final statusCount = {
       'On Route': buses.where((b) => b['status'] == 'On Route').length,
       'Delayed': buses.where((b) => b['status'] == 'Delayed').length,
       'Maintenance': buses.where((b) => b['status'] == 'Maintenance').length,
+      'Out of Service': buses
+          .where((b) => b['status'] == 'Out of Service')
+          .length,
     };
 
     return Container(
@@ -306,7 +375,7 @@ class BusTrackingSidebar extends StatelessWidget {
           Row(
             children: [
               const Text(
-                'Recent Activities',
+                'All Buses',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const Spacer(),
@@ -325,7 +394,7 @@ class BusTrackingSidebar extends StatelessWidget {
           // Bus list
           ...buses.map((bus) {
             // Check if this bus has live location
-            String busNumber = bus['id'].toString().replaceAll('Bus #', '');
+            String busNumber = bus['busNumber'].toString();
             bool hasLocation = busLocations.containsKey(busNumber);
 
             return _buildBusItem(bus, hasLocation);
@@ -359,13 +428,25 @@ class BusTrackingSidebar extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  bus['id'],
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                  ),
-                  overflow: TextOverflow.ellipsis,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      bus['busName'],
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      bus['busNumber'],
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               if (hasLocation)
@@ -404,11 +485,6 @@ class BusTrackingSidebar extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            bus['route'],
-            style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
-          ),
-          const SizedBox(height: 4),
-          Text(
             'Driver: ${bus['driver']}',
             style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
           ),
@@ -424,10 +500,15 @@ class BusTrackingSidebar extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              Text(
-                bus['updated'],
-                style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
-              ),
+              if (bus['isLocationSharing'] == true)
+                const Text(
+                  'Sharing Location',
+                  style: TextStyle(
+                    color: Colors.green,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
             ],
           ),
         ],

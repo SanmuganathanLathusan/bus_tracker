@@ -172,6 +172,17 @@ class AdminService {
     _decode(response);
   }
 
+  // Delete assignment (this will release the bus if it's assigned)
+  Future<void> deleteAssignment(String assignmentId) async {
+    final token = await _getToken();
+    if (token == null) throw Exception('Not authenticated');
+
+    final uri = Uri.parse("$_adminBase/assignments/$assignmentId");
+    final response =
+        await http.delete(uri, headers: _authHeaders(token)).timeout(_timeout);
+    _decode(response);
+  }
+
   Future<List<dynamic>> getDepots() async {
     final token = await _getToken();
     if (token == null) throw Exception('Not authenticated');
@@ -194,6 +205,83 @@ class AdminService {
     final data = _decode(response);
     if (data is Map<String, dynamic>) return data;
     throw Exception('Unexpected pricing stats response');
+  }
+
+  // Get all users with optional filters
+  Future<List<dynamic>> getAllUsers({
+    String? userType,
+    bool? isActive,
+  }) async {
+    final token = await _getToken();
+    if (token == null) throw Exception('Not authenticated');
+
+    final uri = Uri.parse("$_adminBase/users").replace(queryParameters: {
+      if (userType != null && userType != 'All Roles')
+        'userType': userType.toLowerCase(),
+      if (isActive != null) 'isActive': isActive.toString(),
+    });
+
+    final response =
+        await http.get(uri, headers: _authHeaders(token)).timeout(_timeout);
+    final data = _decode(response);
+    if (data is List) return data;
+    throw Exception('Unexpected users response');
+  }
+
+  // Update user status (Active/Suspended)
+  Future<Map<String, dynamic>> updateUserStatus({
+    required String userId,
+    required bool isActive,
+  }) async {
+    final token = await _getToken();
+    if (token == null) throw Exception('Not authenticated');
+
+    final uri = Uri.parse("$_adminBase/users/$userId/status");
+    final payload = jsonEncode({"isActive": isActive});
+
+    final response = await http
+        .put(uri, headers: _authHeaders(token), body: payload)
+        .timeout(_timeout);
+
+    final data = _decode(response);
+    if (data is Map<String, dynamic>) return data;
+    throw Exception('Unexpected update user status response');
+  }
+
+  // Delete user
+  Future<void> deleteUser(String userId) async {
+    final token = await _getToken();
+    if (token == null) throw Exception('Not authenticated');
+
+    final uri = Uri.parse("$_adminBase/users/$userId");
+    final response =
+        await http.delete(uri, headers: _authHeaders(token)).timeout(_timeout);
+    _decode(response);
+  }
+
+  // Update route price
+  Future<Map<String, dynamic>> updateRoutePrice({
+    required String routeId,
+    double? price,
+    double? priceDeluxe,
+    double? priceLuxury,
+  }) async {
+    final token = await _getToken();
+    if (token == null) throw Exception('Not authenticated');
+
+    final uri = Uri.parse("$_apiBase/routes/admin/$routeId");
+    final payload = <String, dynamic>{};
+    if (price != null) payload['price'] = price;
+    if (priceDeluxe != null) payload['priceDeluxe'] = priceDeluxe;
+    if (priceLuxury != null) payload['priceLuxury'] = priceLuxury;
+
+    final response = await http
+        .put(uri, headers: _authHeaders(token), body: jsonEncode(payload))
+        .timeout(_timeout);
+
+    final data = _decode(response);
+    if (data is Map<String, dynamic>) return data;
+    throw Exception('Unexpected update route price response');
   }
 }
 
