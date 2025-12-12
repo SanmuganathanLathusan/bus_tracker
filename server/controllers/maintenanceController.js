@@ -9,8 +9,27 @@ exports.createReport = async (req, res) => {
     const imageUrl = req.file ? req.file.path : undefined;
 
     const bus = await Bus.findById(busId);
-    if (!bus || bus.driverId.toString() !== driverId.toString()) {
-      return res.status(403).json({ error: "Unauthorized" });
+    if (!bus) {
+      return res.status(404).json({ error: "Bus not found" });
+    }
+
+    // Check if driver is assigned to this bus via active assignment
+    const Assignment = require("../models/Assignment");
+    const activeAssignment = await Assignment.findOne({
+      driverId: driverId,
+      busId: busId,
+      status: { $in: ["pending", "accepted"] },
+    });
+
+    // Allow if bus is assigned to driver OR driver has active assignment with this bus
+    const isAuthorized = 
+      (bus.driverId && bus.driverId.toString() === driverId.toString()) ||
+      activeAssignment != null;
+
+    if (!isAuthorized) {
+      return res.status(403).json({ 
+        error: "Unauthorized. You can only submit reports for buses assigned to you." 
+      });
     }
 
     const report = await Maintenance.create({
@@ -27,6 +46,7 @@ exports.createReport = async (req, res) => {
       report
     });
   } catch (error) {
+    console.error("Create maintenance report error:", error);
     res.status(500).json({ error: "Failed to create maintenance report" });
   }
 };
@@ -120,7 +140,45 @@ exports.getAllReports = async (req, res) => {
   }
 };
 
-// RESOLVE REPORT (admin)
+// UPDATE REPORT STATUS (admin)
+exports.updateReportStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const allowedStatuses = ["pending", "received", "not_received", "resolved"];
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({ error: "Invalid status" });
+    }
+
+    const report = await Maintenance.findById(id);
+    if (!report) {
+      return res.status(404).json({ error: "Report not found" });
+    }
+
+    report.status = status;
+    if (status === "resolved") {
+      report.resolvedBy = req.user._id;
+      report.resolvedAt = new Date();
+    }
+    report.updatedAt = new Date();
+    await report.save();
+
+    const populated = await Maintenance.findById(id)
+      .populate("busId", "busNumber busName")
+      .populate("driverId", "userName email")
+      .populate("resolvedBy", "userName");
+
+    res.json({
+      message: "Report status updated successfully",
+      report: populated
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to update report status" });
+  }
+};
+
+// RESOLVE REPORT (admin) - kept for backward compatibility
 exports.resolveReport = async (req, res) => {
   try {
     const { id } = req.params;

@@ -7,7 +7,8 @@ const {
   getBusLocation,
   getAllBuses,
   createBus,
-  assignDriverToBus
+  assignDriverToBus,
+  getAllBusLocations
 } = require("../controllers/busController");
 
 // Driver routes
@@ -19,6 +20,7 @@ router.get("/:busId", getBusLocation);
 
 // Admin routes
 router.get("/admin/all", authMiddleware, getAllBuses);
+router.get("/admin/locations", authMiddleware, getAllBusLocations);
 router.post("/admin", authMiddleware, createBus);
 router.post("/admin/assign-driver", authMiddleware, assignDriverToBus);
 

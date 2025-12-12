@@ -786,18 +786,49 @@ exports.getBusDriverStats = async (req, res) => {
       currentAssignment: driverAssignmentMap[driver._id.toString()] || null,
     }));
 
+    // Create a set of assigned bus IDs for quick lookup
+    const assignedBusIds = new Set(
+      busesWithAssignments
+        .filter((bus) => bus.assignmentStatus === "assigned" || bus.currentAssignmentId)
+        .map((bus) => bus._id.toString())
+    );
+
     const busGroups = {
+      // Workable: All non-assigned buses (regardless of conditionStatus, except maintenance)
+      // This includes buses with conditionStatus "workable" and "non_workable" that are not assigned
       workable: busesWithAssignments.filter(
-        (bus) => bus.conditionStatus === "workable"
+        (bus) => {
+          const busId = bus._id.toString();
+          const isAssigned = assignedBusIds.has(busId) || 
+                           bus.assignmentStatus === "assigned" || 
+                           bus.currentAssignmentId;
+          const isMaintenance = bus.conditionStatus === "maintenance";
+          // Include if not assigned and not in maintenance
+          return !isAssigned && !isMaintenance;
+        }
       ),
+      // Non-workable: Keep for reference but these will also appear in workable if not assigned
       non_workable: busesWithAssignments.filter(
-        (bus) => bus.conditionStatus === "non_workable"
+        (bus) => {
+          const busId = bus._id.toString();
+          const isAssigned = assignedBusIds.has(busId) || 
+                           bus.assignmentStatus === "assigned" || 
+                           bus.currentAssignmentId;
+          return bus.conditionStatus === "non_workable" && !isAssigned;
+        }
       ),
+      // Maintenance: Buses in maintenance (regardless of assignment status)
       maintenance: busesWithAssignments.filter(
         (bus) => bus.conditionStatus === "maintenance"
       ),
+      // Assigned: Buses that are currently assigned to an assignment
       assigned: busesWithAssignments.filter(
-        (bus) => bus.assignmentStatus === "assigned"
+        (bus) => {
+          const busId = bus._id.toString();
+          return assignedBusIds.has(busId) || 
+                 bus.assignmentStatus === "assigned" || 
+                 bus.currentAssignmentId != null;
+        }
       ),
     };
 
@@ -819,7 +850,7 @@ exports.getBusDriverStats = async (req, res) => {
     res.json({
       stats: {
         totalBuses: busesWithAssignments.length,
-        workableBuses: busGroups.workable.length,
+        workableBuses: busGroups.workable.length, // All non-assigned buses (excluding maintenance)
         assignedBuses: busGroups.assigned.length,
         totalDrivers: driversWithAssignments.length,
         availableDrivers: driverGroups.available.length,
