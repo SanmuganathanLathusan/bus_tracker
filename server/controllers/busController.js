@@ -5,7 +5,11 @@ const Depot = require("../models/Depot");
 // UPDATE BUS LOCATION
 exports.updateLocation = async (req, res) => {
   try {
-    const { busId, lat, lng } = req.body;
+    // Support both formats for compatibility
+    const busId = req.body.busId || req.body.bus_id;
+    const lat = req.body.lat || req.body.latitude;
+    const lng = req.body.lng || req.body.longitude;
+    
     const driverId = req.user._id;
 
     // Verify driver owns the bus
@@ -20,6 +24,18 @@ exports.updateLocation = async (req, res) => {
       updatedAt: new Date(),
     };
     await bus.save();
+
+    // Emit location update to all connected clients via Socket.IO
+    const { io } = require('../server');
+    if (io) {
+      io.emit('busLocationUpdate', {
+        busId: busId,
+        location: {
+          lat: lat,
+          lng: lng
+        }
+      });
+    }
 
     res.json({
       message: "Location updated successfully",
@@ -77,6 +93,29 @@ exports.getBusLocation = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch bus location" });
+  }
+};
+
+// GET ALL BUS LOCATIONS (for admin live tracking)
+exports.getAllBusLocations = async (req, res) => {
+  try {
+    // Get all buses that are currently sharing their location
+    const buses = await Bus.find({ 
+      isLocationSharing: true,
+      currentLocation: { $exists: true }
+    }).select('_id busNumber currentLocation');
+
+    const locations = buses.map(bus => ({
+      bus_id: bus._id,
+      busNumber: bus.busNumber,
+      latitude: bus.currentLocation.lat,
+      longitude: bus.currentLocation.lng,
+      updatedAt: bus.currentLocation.updatedAt
+    }));
+
+    res.json(locations);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch bus locations" });
   }
 };
 
