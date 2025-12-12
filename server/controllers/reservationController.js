@@ -51,7 +51,7 @@ exports.createReservation = async (req, res) => {
 
     const ticketId = `TKT-${Date.now()}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
 
-    const reservation = await Reservation.create({
+    let reservation = await Reservation.create({
       userId,
       routeId,
       busId: route.busId,
@@ -61,6 +61,43 @@ exports.createReservation = async (req, res) => {
       totalAmount: route.price * seats.length,
       ticketId,
     });
+
+    // Populate data for notifications
+    reservation = await reservation.populate([
+      { path: "routeId", select: "start destination departure arrival busName price" },
+      { path: "busId", select: "busNumber busName driverId" },
+      { path: "userId", select: "userName email phone" },
+    ]);
+
+    // Determine the driver for this booking (assignment preferred, fallback to bus driver)
+    let driverId = reservation.busId && reservation.busId.driverId ? reservation.busId.driverId : null;
+
+    let assignment = null;
+    const dayStartForAssignment = new Date(searchDate);
+    dayStartForAssignment.setHours(0, 0, 0, 0);
+    const dayEndForAssignment = new Date(dayStartForAssignment);
+    dayEndForAssignment.setDate(dayEndForAssignment.getDate() + 1);
+
+    assignment = await Assignment.findOne({
+      routeId: reservation.routeId._id || reservation.routeId,
+      scheduledDate: { $gte: dayStartForAssignment, $lt: dayEndForAssignment },
+      status: "accepted",
+    }).populate("driverId", "userName email");
+
+    if (assignment && assignment.driverId) {
+      driverId = assignment.driverId._id;
+    }
+
+    // Notify the specific driver only (if found)
+    if (driverId) {
+      try {
+        notifyDriverNewBooking(driverId, reservation, assignment).catch(err => {
+          console.error("Failed to send push notification to driver (reserved):", err);
+        });
+      } catch (notifError) {
+        console.error("Failed to notify driver for reservation:", notifError);
+      }
+    }
 
     res.status(201).json({
       message: "Reservation created successfully",
