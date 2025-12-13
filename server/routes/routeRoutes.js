@@ -4,16 +4,25 @@ const authMiddleware = require("../middleware/authMiddleware");
 const {
   searchRoutes,
   getAllRoutes,
+  getRouteById,
   createRoute,
   updateRoute,
-  deleteRoute
+  deleteRoute,
+  getRoutePricesByType
 } = require("../controllers/routeController");
 
-// Public route - search routes
+// Public routes - order matters! More specific routes first
+// Get route prices by type (for ticket prices page)
+router.get("/prices", getRoutePricesByType);
+
+// Search routes
 router.get("/search", searchRoutes);
 
 // Get all routes
 router.get("/", getAllRoutes);
+
+// Get route by ID
+router.get("/:id", getRouteById);
 
 // Admin routes
 router.post("/admin", authMiddleware, createRoute);

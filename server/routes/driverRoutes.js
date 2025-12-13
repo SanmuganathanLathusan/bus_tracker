@@ -14,7 +14,8 @@ const {
   markPassengerStatus,
   getDriverPerformance,
   getAssignmentPassengers,
-  getNextPendingAssignment
+  getNextPendingAssignment,
+  getDriverTicketsAndReservations
 } = require("../controllers/driverController");
 
 // All routes require authentication
@@ -42,5 +43,8 @@ router.get("/performance", getDriverPerformance);
 
 // Next pending assignment
 router.get("/assignments/next-pending", getNextPendingAssignment);
+
+// Get all tickets and reservations for driver
+router.get("/tickets-reservations", getDriverTicketsAndReservations);
 
 module.exports = router;

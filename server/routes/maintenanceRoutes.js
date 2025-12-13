@@ -9,6 +9,7 @@ const {
   getDriverReports,
   getReportById,
   getAllReports,
+  updateReportStatus,
   resolveReport
 } = require("../controllers/maintenanceController");
 
@@ -36,6 +37,7 @@ router.get("/:id", getReportById);
 
 // Admin routes
 router.get("/admin/all", getAllReports);
+router.put("/admin/:id/status", updateReportStatus);
 router.put("/admin/:id/resolve", resolveReport);
 
 module.exports = router;
