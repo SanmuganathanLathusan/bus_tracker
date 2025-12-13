@@ -1,13 +1,19 @@
-// lib/user_screen/pages/profile_page.dart
+// lib/driver_screen/pages/profile_page.dart
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:waygo/utils/app_colors.dart';
 import 'package:waygo/utils/app_text_styles.dart';
+import 'package:waygo/services/profile_service.dart';
 
 class ProfilePage extends StatefulWidget {
-  final Function({String? name, String? busNumber, String? profileImage})?
+  final Function({
+    String? name,
+    String? busNumber,
+    String? busName,
+    String? profileImage,
+  })?
   onProfileUpdated;
 
   const ProfilePage({Key? key, this.onProfileUpdated}) : super(key: key);
@@ -18,17 +24,59 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   final _formKey = GlobalKey<FormState>();
+  final ProfileService _profileService = ProfileService();
 
   // editable fields
-  String name = "Saman Perera";
-  String driverId = "DRV-7890";
-  String licenseNumber = "DL-123456";
-  String contact = "+94 77 123 4567";
-  String email = "saman.p@waygo.lk";
-  String busNumber = "SP-1234";
+  String name = "";
+  String driverId = "";
+  String licenseNumber = "";
+  String contact = "";
+  String email = "";
+  String busNumber = "";
+  String? busName;
+  String? profileImageUrl;
 
   File? _profileImageFile;
   final ImagePicker _picker = ImagePicker();
+  bool _isLoading = true;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final response = await _profileService.getProfile();
+      final user = response['user'] as Map<String, dynamic>;
+
+      if (!mounted) return;
+      setState(() {
+        name = user['userName'] ?? '';
+        driverId = user['id'] ?? '';
+        licenseNumber = user['licenseNumber'] ?? '';
+        contact = user['phone'] ?? '';
+        email = user['email'] ?? '';
+        busNumber = user['busNumber'] ?? 'Not Assigned';
+        busName = user['busName'];
+        profileImageUrl = user['profileImage'];
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error loading profile: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
 
   Future<void> _pickImage(ImageSource source) async {
     try {
@@ -88,22 +136,71 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  void _saveProfile() {
+  void _saveProfile() async {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
-      widget.onProfileUpdated?.call(
-        name: name,
-        busNumber: busNumber,
-        profileImage: _profileImageFile?.path,
-      );
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile updated successfully!')),
-      );
+
+      setState(() => _isSaving = true);
+
+      try {
+        final response = await _profileService.updateProfile(
+          userName: name,
+          phone: contact,
+          licenseNumber: licenseNumber,
+          profileImage: _profileImageFile,
+        );
+
+        final user = response['user'] as Map<String, dynamic>;
+
+        if (!mounted) return;
+
+        // Update local state
+        setState(() {
+          name = user['userName'] ?? name;
+          contact = user['phone'] ?? contact;
+          licenseNumber = user['licenseNumber'] ?? licenseNumber;
+          busNumber = user['busNumber'] ?? busNumber;
+          busName = user['busName'];
+          profileImageUrl = user['profileImage'];
+          _isSaving = false;
+        });
+
+        // Notify dashboard of profile update
+        widget.onProfileUpdated?.call(
+          name: name,
+          busNumber: busNumber,
+          busName: busName,
+          profileImage: profileImageUrl,
+        );
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile updated successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating profile: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        backgroundColor: Color.fromARGB(255, 150, 208, 245),
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 150, 208, 245),
       body: SingleChildScrollView(
@@ -137,10 +234,15 @@ class _ProfilePageState extends State<ProfilePage> {
                               radius: 50,
                               backgroundImage: _profileImageFile != null
                                   ? FileImage(_profileImageFile!)
-                                  : const NetworkImage(
-                                          'https://randomuser.me/api/portraits/men/1.jpg',
+                                  : (profileImageUrl != null &&
+                                        profileImageUrl!.isNotEmpty)
+                                  ? NetworkImage(
+                                          'http://10.0.2.2:5000$profileImageUrl',
                                         )
-                                        as ImageProvider,
+                                        as ImageProvider
+                                  : const NetworkImage(
+                                      'https://randomuser.me/api/portraits/men/1.jpg',
+                                    ),
                             ),
                             Container(
                               margin: const EdgeInsets.only(
@@ -198,7 +300,10 @@ class _ProfilePageState extends State<ProfilePage> {
                       const Divider(),
                       _buildEditableField(
                         label: "Driver ID",
-                        initialValue: driverId,
+                        initialValue: driverId.substring(
+                          0,
+                          driverId.length > 12 ? 12 : driverId.length,
+                        ),
                         readOnly: true,
                       ),
                       const Divider(),
@@ -232,8 +337,10 @@ class _ProfilePageState extends State<ProfilePage> {
                       const Divider(),
                       _buildEditableField(
                         label: "Assigned Bus",
-                        initialValue: busNumber,
-                        onSaved: (v) => busNumber = v ?? busNumber,
+                        initialValue: busName != null
+                            ? '$busNumber - $busName'
+                            : busNumber,
+                        readOnly: true,
                       ),
                     ],
                   ),
@@ -246,9 +353,18 @@ class _ProfilePageState extends State<ProfilePage> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: _saveProfile,
-                  icon: const Icon(Icons.save),
-                  label: const Text("Save Changes"),
+                  onPressed: _isSaving ? null : _saveProfile,
+                  icon: _isSaving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.save),
+                  label: Text(_isSaving ? "Saving..." : "Save Changes"),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.accentPrimary,
                     foregroundColor: Colors.white,

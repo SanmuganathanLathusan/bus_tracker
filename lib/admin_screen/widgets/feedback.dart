@@ -1,60 +1,84 @@
 import 'package:flutter/material.dart';
+import 'package:waygo/services/maintenance_service.dart';
+import 'package:intl/intl.dart';
 
-class FeedbackWidget extends StatelessWidget {
+class FeedbackWidget extends StatefulWidget {
   const FeedbackWidget({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    final reports = [
-      {
-        'type': 'Complaint',
-        'user': 'Alice Johnson',
-        'subject': 'Bus delayed by 30 minutes on Route 5',
-        'date': '2025-10-30',
-        'status': 'Pending',
-        'rating': 2,
-      },
-      {
-        'type': 'Feedback',
-        'user': 'Bob Smith',
-        'subject': 'Great service on Route 5, very punctual',
-        'date': '2025-10-29',
-        'status': 'Resolved',
-        'rating': 5,
-      },
-      {
-        'type': 'Issue',
-        'user': 'Carol White',
-        'subject': 'AC not working on Bus #205',
-        'date': '2025-10-28',
-        'status': 'In Progress',
-        'rating': 3,
-      },
-      {
-        'type': 'Complaint',
-        'user': 'David Brown',
-        'subject': 'Driver was rude and unprofessional',
-        'date': '2025-10-27',
-        'status': 'Escalated',
-        'rating': 1,
-      },
-      {
-        'type': 'Delay',
-        'user': 'Emma Wilson',
-        'subject': 'Route 12 delayed due to traffic',
-        'date': '2025-10-26',
-        'status': 'Resolved',
-        'rating': 3,
-      },
-    ];
+  State<FeedbackWidget> createState() => _FeedbackWidgetState();
+}
 
-    int totalReports = reports.length;
-    int pending = reports.where((r) => r['status'] == 'Pending').length;
-    int inProgress = reports.where((r) => r['status'] == 'In Progress').length;
-    int resolved = reports.where((r) => r['status'] == 'Resolved').length;
-    double avgRating =
-        reports.fold(0, (sum, r) => sum + (r['rating'] as int)) /
-        reports.length;
+class _FeedbackWidgetState extends State<FeedbackWidget> {
+  final MaintenanceService _maintenanceService = MaintenanceService();
+  bool _isLoading = true;
+  String? _error;
+  List<dynamic> _reports = [];
+  String _selectedStatusFilter = 'All Types';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadReports();
+  }
+
+  Future<void> _loadReports() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final reports = await _maintenanceService.getAllReports();
+      setState(() {
+        _reports = reports;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  List<dynamic> get _filteredReports {
+    if (_selectedStatusFilter == 'All Types') {
+      return _reports;
+    }
+    return _reports.where((r) {
+      final status = r['status'] ?? 'unsent';
+      return _getStatusDisplayName(status) == _selectedStatusFilter;
+    }).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('Error: $_error', style: const TextStyle(color: Colors.red)),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadReports,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    int totalReports = _reports.length;
+    int pending = _reports.where((r) => (r['status'] ?? '') == 'pending').length;
+    int received = _reports.where((r) => (r['status'] ?? '') == 'received').length;
+    int notReceived = _reports.where((r) => (r['status'] ?? '') == 'not_received').length;
+    int resolved = _reports.where((r) => (r['status'] ?? '') == 'resolved').length;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -66,12 +90,12 @@ class FeedbackWidget extends StatelessWidget {
           _buildStatsSection(
             totalReports,
             pending,
-            inProgress,
+            received,
+            notReceived,
             resolved,
-            avgRating,
           ),
           const SizedBox(height: 32),
-          _buildReportsSection(reports),
+          _buildReportsSection(_filteredReports),
         ],
       ),
     );
@@ -82,9 +106,21 @@ class FeedbackWidget extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Reports, Feedback & Issues',
-          style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Expanded(
+              child: Text(
+                'Reports and Issues',
+                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _loadReports,
+              tooltip: 'Refresh',
+            ),
+          ],
         ),
         const SizedBox(height: 16),
         Row(
@@ -98,10 +134,10 @@ class FeedbackWidget extends StatelessWidget {
                 border: Border.all(color: Colors.grey.shade300),
               ),
               child: DropdownButton<String>(
-                value: 'All Types',
+                value: _selectedStatusFilter,
                 underline: const SizedBox(),
                 icon: const Icon(Icons.arrow_drop_down, size: 24),
-                items: ['All Types', 'Complaint', 'Feedback', 'Issue', 'Delay']
+                items: ['All Types', 'Pending', 'Received', 'Not Received', 'Resolved']
                     .map((String value) {
                       return DropdownMenuItem<String>(
                         value: value,
@@ -109,7 +145,9 @@ class FeedbackWidget extends StatelessWidget {
                       );
                     })
                     .toList(),
-                onChanged: (value) {},
+                onChanged: (value) {
+                  setState(() => _selectedStatusFilter = value ?? 'All Types');
+                },
               ),
             ),
           ],
@@ -122,67 +160,85 @@ class FeedbackWidget extends StatelessWidget {
   Widget _buildStatsSection(
     int total,
     int pending,
-    int inProgress,
+    int received,
+    int notReceived,
     int resolved,
-    double avgRating,
   ) {
-    return Column(
-      children: [
-        // First Row - 3 cards
-        Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth > 600;
+        return Column(
           children: [
-            Expanded(
-              child: _buildStatCard(
-                'Total Reports',
-                '$total',
-                Icons.report,
-                Colors.orange,
-              ),
+            // First Row
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatCard(
+                    'Total Reports',
+                    '$total',
+                    Icons.report,
+                    Colors.orange,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildStatCard(
+                    'Pending',
+                    '$pending',
+                    Icons.pending,
+                    Colors.red,
+                  ),
+                ),
+                if (isWide) ...[
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _buildStatCard(
+                      'Received',
+                      '$received',
+                      Icons.inbox,
+                      Colors.blue,
+                    ),
+                  ),
+                ],
+              ],
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _buildStatCard(
-                'Pending',
-                '$pending',
-                Icons.pending,
-                Colors.red,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _buildStatCard(
-                'In Progress',
-                '$inProgress',
-                Icons.refresh,
-                Colors.blue,
-              ),
+            const SizedBox(height: 16),
+            // Second Row
+            Row(
+              children: [
+                if (!isWide) ...[
+                  Expanded(
+                    child: _buildStatCard(
+                      'Received',
+                      '$received',
+                      Icons.inbox,
+                      Colors.blue,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                ],
+                Expanded(
+                  child: _buildStatCard(
+                    'Not Received',
+                    '$notReceived',
+                    Icons.cancel,
+                    Colors.red.shade700,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildStatCard(
+                    'Resolved',
+                    '$resolved',
+                    Icons.check_circle,
+                    Colors.green,
+                  ),
+                ),
+              ],
             ),
           ],
-        ),
-        const SizedBox(height: 16),
-        // Second Row - 2 cards
-        Row(
-          children: [
-            Expanded(
-              child: _buildStatCard(
-                'Resolved',
-                '$resolved',
-                Icons.check_circle,
-                Colors.green,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _buildStatCard(
-                'Avg Rating',
-                avgRating.toStringAsFixed(1),
-                Icons.star,
-                Colors.amber,
-              ),
-            ),
-          ],
-        ),
-      ],
+        );
+      },
     );
   }
 
@@ -240,21 +296,39 @@ class FeedbackWidget extends StatelessWidget {
   }
 
   // Reports Section
-  Widget _buildReportsSection(List<Map<String, dynamic>> reports) {
+  Widget _buildReportsSection(List<dynamic> reports) {
+    if (reports.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            children: [
+              Icon(Icons.description_outlined, size: 64, color: Colors.grey.shade400),
+              const SizedBox(height: 16),
+              Text(
+                'No reports found',
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
-              'Recent Reports',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            Text(
+              'Maintenance Reports (${reports.length})',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             TextButton.icon(
-              onPressed: () {},
-              icon: const Icon(Icons.filter_list, size: 18),
-              label: const Text('Filter'),
+              onPressed: _loadReports,
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('Refresh'),
             ),
           ],
         ),
@@ -293,14 +367,21 @@ class FeedbackWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildCardHeader(Map<String, dynamic> report) {
-    Color typeColor = _getTypeColor(report['type'] as String);
-    Color statusColor = _getStatusColor(report['status'] as String);
+  Widget _buildCardHeader(dynamic report) {
+    final issueType = report['issueType'] ?? 'other';
+    final typeColor = _getTypeColor(issueType);
+    final status = report['status'] ?? 'unsent';
+    final statusColor = _getStatusColor(status);
+    final statusLabel = _getStatusDisplayName(status);
+    final bus = report['busId'] is Map
+        ? (report['busId']['busNumber'] ?? report['busId']['busName'] ?? 'Unknown Bus')
+        : 'Unknown Bus';
+    final reportId = report['_id']?.toString() ?? '';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Top row with badges and rating
+        // Top row with badges and bus info
         Row(
           children: [
             // Type Badge
@@ -311,7 +392,7 @@ class FeedbackWidget extends StatelessWidget {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
-                report['type'],
+                issueType.substring(0, 1).toUpperCase() + issueType.substring(1),
                 style: TextStyle(
                   color: typeColor,
                   fontWeight: FontWeight.bold,
@@ -328,7 +409,7 @@ class FeedbackWidget extends StatelessWidget {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
-                report['status'],
+                statusLabel,
                 style: TextStyle(
                   color: statusColor,
                   fontWeight: FontWeight.bold,
@@ -336,31 +417,32 @@ class FeedbackWidget extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 12),
-            // Rating Stars
-            Expanded(
-              child: Row(
-                children: List.generate(5, (index) {
-                  return Icon(
-                    index < (report['rating'] as int)
-                        ? Icons.star
-                        : Icons.star_border,
-                    size: 18,
-                    color: Colors.amber,
-                  );
-                }),
-              ),
+            const Spacer(),
+            // Bus Info
+            Row(
+              children: [
+                Icon(Icons.directions_bus, size: 16, color: Colors.grey.shade600),
+                const SizedBox(width: 4),
+                Text(
+                  bus,
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
         const SizedBox(height: 12),
         // Action buttons on separate row
-        _buildActionButtons(),
+        _buildActionButtons(reportId, status),
       ],
     );
   }
 
-  Widget _buildActionButtons() {
+  Widget _buildActionButtons(String reportId, String currentStatus) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
@@ -369,48 +451,138 @@ class FeedbackWidget extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton(
-            icon: const Icon(Icons.visibility_outlined, size: 20),
-            color: Colors.blue,
-            onPressed: () {},
-            tooltip: 'View Details',
-          ),
-          Container(width: 1, height: 20, color: Colors.grey.shade300),
-          IconButton(
-            icon: const Icon(Icons.reply_outlined, size: 20),
-            color: Colors.green,
-            onPressed: () {},
-            tooltip: 'Reply',
-          ),
-          Container(width: 1, height: 20, color: Colors.grey.shade300),
-          IconButton(
-            icon: const Icon(Icons.check_circle_outline, size: 20),
-            color: Colors.orange,
-            onPressed: () {},
-            tooltip: 'Mark as Resolved',
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, size: 20, color: Colors.blue),
+            tooltip: 'Update Status',
+            onSelected: (status) => _updateReportStatus(reportId, status),
+            itemBuilder: (context) => [
+              if (currentStatus != 'pending')
+                const PopupMenuItem(
+                  value: 'pending',
+                  child: Row(
+                    children: [
+                      Icon(Icons.pending, size: 18, color: Colors.orange),
+                      SizedBox(width: 8),
+                      Text('Mark as Pending'),
+                    ],
+                  ),
+                ),
+              if (currentStatus != 'received')
+                const PopupMenuItem(
+                  value: 'received',
+                  child: Row(
+                    children: [
+                      Icon(Icons.inbox, size: 18, color: Colors.blue),
+                      SizedBox(width: 8),
+                      Text('Mark as Received'),
+                    ],
+                  ),
+                ),
+              if (currentStatus != 'not_received')
+                const PopupMenuItem(
+                  value: 'not_received',
+                  child: Row(
+                    children: [
+                      Icon(Icons.cancel, size: 18, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('Mark as Not Received'),
+                    ],
+                  ),
+                ),
+              if (currentStatus != 'resolved')
+                const PopupMenuItem(
+                  value: 'resolved',
+                  child: Row(
+                    children: [
+                      Icon(Icons.check_circle, size: 18, color: Colors.green),
+                      SizedBox(width: 8),
+                      Text('Mark as Resolved'),
+                    ],
+                  ),
+                ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildCardBody(Map<String, dynamic> report) {
+  Future<void> _updateReportStatus(String reportId, String status) async {
+    try {
+      await _maintenanceService.updateReportStatus(
+        reportId: reportId,
+        status: status,
+      );
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Report status updated to ${_getStatusDisplayName(status)}'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        _loadReports();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update status: ${e.toString().replaceAll('Exception: ', '')}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _buildCardBody(dynamic report) {
+    final description = report['description'] ?? 'No description';
+    final imageUrl = report['imageUrl'];
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          report['subject'],
+          description,
           style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
             height: 1.4,
           ),
         ),
+        if (imageUrl != null && imageUrl.toString().isNotEmpty) ...[
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.network(
+              'http://10.0.2.2:5000/$imageUrl',
+              height: 200,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  height: 200,
+                  color: Colors.grey.shade200,
+                  child: const Center(
+                    child: Icon(Icons.broken_image, color: Colors.grey),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ],
     );
   }
 
-  Widget _buildCardFooter(Map<String, dynamic> report) {
+  Widget _buildCardFooter(dynamic report) {
+    final driver = report['driverId'] is Map
+        ? (report['driverId']['userName'] ?? 'Unknown Driver')
+        : 'Unknown Driver';
+    final date = report['createdAt'] != null
+        ? DateFormat('yyyy-MM-dd').format(DateTime.parse(report['createdAt']))
+        : 'Unknown date';
+    
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -422,7 +594,7 @@ class FeedbackWidget extends StatelessWidget {
           Icon(Icons.person_outline, size: 16, color: Colors.grey.shade600),
           const SizedBox(width: 6),
           Text(
-            report['user'],
+            driver,
             style: TextStyle(
               color: Colors.grey.shade700,
               fontSize: 13,
@@ -437,7 +609,7 @@ class FeedbackWidget extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Text(
-            report['date'],
+            date,
             style: TextStyle(
               color: Colors.grey.shade700,
               fontSize: 13,
@@ -450,16 +622,19 @@ class FeedbackWidget extends StatelessWidget {
   }
 
   // Helper Methods
-  Color _getTypeColor(String type) {
-    switch (type) {
-      case 'Complaint':
+  Color _getTypeColor(String issueType) {
+    switch (issueType) {
+      case 'engine':
         return Colors.red;
-      case 'Feedback':
-        return Colors.blue;
-      case 'Delay':
+      case 'brakes':
         return Colors.orange;
-      case 'Issue':
+      case 'tires':
+        return Colors.blue;
+      case 'ac':
+        return Colors.cyan;
+      case 'electrical':
         return Colors.purple;
+      case 'other':
       default:
         return Colors.grey;
     }
@@ -467,16 +642,34 @@ class FeedbackWidget extends StatelessWidget {
 
   Color _getStatusColor(String status) {
     switch (status) {
-      case 'Resolved':
+      case 'resolved':
         return Colors.green;
-      case 'In Progress':
+      case 'received':
         return Colors.blue;
-      case 'Escalated':
-        return Colors.purple;
-      case 'Pending':
+      case 'not_received':
         return Colors.red;
+      case 'pending':
+        return Colors.orange;
+      case 'unsent':
       default:
         return Colors.grey;
+    }
+  }
+
+  String _getStatusDisplayName(String status) {
+    switch (status) {
+      case 'pending':
+        return 'Pending';
+      case 'received':
+        return 'Received';
+      case 'not_received':
+        return 'Not Received';
+      case 'resolved':
+        return 'Resolved';
+      case 'unsent':
+        return 'Draft';
+      default:
+        return status;
     }
   }
 }
