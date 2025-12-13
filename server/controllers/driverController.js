@@ -3,6 +3,7 @@ const Assignment = require("../models/Assignment");
 const Bus = require("../models/Bus");
 const Reservation = require("../models/Reservation");
 const Rating = require("../models/Rating");
+const Notification = require("../models/Notification");
 const {
   markDriverAssigned,
   releaseDriverIfIdle,
@@ -222,6 +223,11 @@ exports.respondToAssignment = async (req, res) => {
     assignment.status = status;
     assignment.driverResponse = response;
     assignment.updatedAt = new Date();
+    
+    if (status === "accepted") {
+      assignment.acceptedAt = new Date();
+    }
+    
     await assignment.save();
 
     if (status === "rejected") {
@@ -229,11 +235,26 @@ exports.respondToAssignment = async (req, res) => {
       if (assignment.busId) {
         await releaseBusIfIdle(assignment.busId, assignment._id);
       }
+      
+      // Mark assignment notification as read
+      await Notification.updateMany(
+        { userId: driverId, assignmentId: assignment._id },
+        { isRead: true }
+      );
     } else if (status === "accepted") {
       await markDriverAssigned(driverId, assignment._id);
       if (assignment.busId) {
         await markBusAssigned(assignment.busId, assignment._id, assignment.scheduledDate);
       }
+      
+      // Mark assignment notification as read
+      await Notification.updateMany(
+        { userId: driverId, assignmentId: assignment._id },
+        { isRead: true }
+      );
+      
+      // Note: Passenger booking notifications will be sent when reservations are made
+      // The driver is now subscribed to receive notifications for this assignment
     }
 
     res.json({
@@ -396,6 +417,139 @@ exports.getNextPendingAssignment = async (req, res) => {
   } catch (error) {
     console.error("Get next pending assignment error:", error);
     res.status(500).json({ error: "Failed to fetch next pending assignment" });
+  }
+};
+
+// GET ALL RESERVATIONS AND TICKETS FOR DRIVER (includes both reserved and paid)
+exports.getDriverTicketsAndReservations = async (req, res) => {
+  try {
+    const driverId = req.user._id;
+
+    // Get driver's active assignments
+    const assignments = await Assignment.find({
+      driverId,
+      status: { $in: ["pending", "accepted"] }
+    })
+      .populate("routeId", "start destination departure arrival routeNumber")
+      .populate("busId", "busNumber busName totalSeats")
+      .sort({ scheduledDate: 1, scheduledTime: 1 });
+
+    if (!assignments || assignments.length === 0) {
+      return res.json({
+        message: "No active assignments found",
+        reservations: [],
+        tickets: [],
+        summary: {
+          totalReservations: 0,
+          totalTickets: 0,
+          totalRevenue: 0,
+          totalSeatsBooked: 0
+        }
+      });
+    }
+
+    // Collect all route IDs and dates from assignments
+    const routeIds = assignments.map(a => a.routeId?._id).filter(Boolean);
+    const scheduledDates = assignments.map(a => a.scheduledDate);
+
+    // Find all reservations (both reserved and paid) for these routes
+    const allBookings = await Reservation.find({
+      routeId: { $in: routeIds },
+      date: { $in: scheduledDates },
+      status: { $in: ["reserved", "paid"] }
+    })
+      .populate("userId", "userName email phone")
+      .populate("routeId", "start destination departure arrival routeNumber")
+      .populate("busId", "busNumber busName")
+      .sort({ createdAt: -1 });
+
+    // Separate reserved and paid tickets
+    const reservations = allBookings.filter(b => b.status === "reserved");
+    const tickets = allBookings.filter(b => b.status === "paid");
+
+    // Calculate summary statistics
+    const totalSeatsReserved = reservations.reduce((sum, r) => sum + (r.seats?.length || 0), 0);
+    const totalSeatsPaid = tickets.reduce((sum, t) => sum + (t.seats?.length || 0), 0);
+    const totalRevenue = tickets.reduce((sum, t) => sum + (t.totalAmount || 0), 0);
+
+    res.json({
+      message: "Tickets and reservations fetched successfully",
+      assignments: assignments.map(a => ({
+        id: a._id,
+        route: {
+          id: a.routeId?._id,
+          start: a.routeId?.start,
+          destination: a.routeId?.destination,
+          departure: a.routeId?.departure,
+          arrival: a.routeId?.arrival,
+          routeNumber: a.routeId?.routeNumber
+        },
+        bus: {
+          id: a.busId?._id,
+          busNumber: a.busId?.busNumber,
+          busName: a.busId?.busName,
+          totalSeats: a.busId?.totalSeats
+        },
+        scheduledDate: a.scheduledDate,
+        scheduledTime: a.scheduledTime,
+        status: a.status
+      })),
+      reservations: reservations.map(r => ({
+        id: r._id,
+        ticketId: r.ticketId,
+        passenger: {
+          name: r.userId?.userName || "Unknown",
+          email: r.userId?.email,
+          phone: r.userId?.phone
+        },
+        route: {
+          start: r.routeId?.start,
+          destination: r.routeId?.destination,
+          departure: r.routeId?.departure,
+          arrival: r.routeId?.arrival
+        },
+        seats: r.seats,
+        amount: r.totalAmount,
+        status: r.status,
+        boardingStatus: r.boardingStatus,
+        qrCode: r.qrCode,
+        date: r.date,
+        createdAt: r.createdAt
+      })),
+      tickets: tickets.map(t => ({
+        id: t._id,
+        ticketId: t.ticketId,
+        passenger: {
+          name: t.userId?.userName || "Unknown",
+          email: t.userId?.email,
+          phone: t.userId?.phone
+        },
+        route: {
+          start: t.routeId?.start,
+          destination: t.routeId?.destination,
+          departure: t.routeId?.departure,
+          arrival: t.routeId?.arrival
+        },
+        seats: t.seats,
+        amount: t.totalAmount,
+        status: t.status,
+        boardingStatus: t.boardingStatus,
+        qrCode: t.qrCode,
+        date: t.date,
+        createdAt: t.createdAt
+      })),
+      summary: {
+        totalReservations: reservations.length,
+        totalTickets: tickets.length,
+        totalSeatsReserved: totalSeatsReserved,
+        totalSeatsPaid: totalSeatsPaid,
+        totalSeatsBooked: totalSeatsReserved + totalSeatsPaid,
+        totalRevenue: totalRevenue
+      }
+    });
+  } catch (error) {
+    console.error("Get driver tickets and reservations error:", error);
+    res.status(500).json({ error: "Failed to fetch tickets and reservations" });
   }
 };
 
