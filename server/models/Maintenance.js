@@ -12,7 +12,7 @@ const maintenanceSchema = new mongoose.Schema({
   imageUrl: { type: String },
   status: { 
     type: String, 
-    enum: ["pending", "resolved", "unsent"], 
+    enum: ["pending", "received", "not_received", "resolved", "unsent"], 
     default: "unsent" 
   },
   resolvedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },

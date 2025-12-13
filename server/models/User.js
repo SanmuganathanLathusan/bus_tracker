@@ -19,6 +19,8 @@ const userSchema = new mongoose.Schema({
   },
   licenseNumber: { type: String },
   isActive: { type: Boolean, default: true },
+  fcmToken: { type: String },
+  fcmTokens: [{ type: String }],
 }, { timestamps: true });
 
 module.exports = mongoose.model("User", userSchema);
