@@ -7,6 +7,7 @@ import 'package:waygo/user_screen/pages/news_page.dart';
 import 'package:waygo/user_screen/pages/schedule_page.dart';
 import 'package:waygo/user_screen/pages/seat_reserve/seat_reservation_home.dart';
 import 'package:waygo/user_screen/pages/ticket_prices_page.dart';
+import 'package:waygo/user_screen/pages/eticket_booking_page.dart';
 import 'package:waygo/user_screen/signup.dart';
 import 'package:waygo/user_screen/splash.dart';
 import 'package:waygo/user_screen/welcome_screen.dart';
@@ -52,7 +53,7 @@ class MyApp extends StatelessWidget {
         '/schedule': (context) => const SchedulePage(),
         '/seats': (context) => const SeatReservationHome(),
         '/prices': (context) => const TicketPricesPage(),
-        // '/eticket': (context) => const TicketPrices(),
+        '/eticket': (context) => const EticketBookingPage(),
       },
     );
   }

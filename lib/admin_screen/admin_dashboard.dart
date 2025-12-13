@@ -9,6 +9,7 @@ import 'package:waygo/admin_screen/widgets/overview.dart';
 import 'package:waygo/admin_screen/widgets/setting.dart';
 import 'package:waygo/admin_screen/widgets/ticket_and_prising.dart';
 import 'package:waygo/admin_screen/widgets/users.dart';
+import 'package:waygo/admin_screen/widgets/profile.dart';
 
 class AdminDashboard extends StatelessWidget {
   const AdminDashboard({Key? key}) : super(key: key);
@@ -44,9 +45,15 @@ class _DashboardHomeState extends State<DashboardHome> {
     {'icon': Icons.directions_bus, 'label': 'Buses & Drivers'},
     {'icon': Icons.confirmation_number, 'label': 'Ticket & Pricing'},
     {'icon': Icons.people, 'label': 'Users'},
-    {'icon': Icons.feedback, 'label': 'Feedback'},
+    {'icon': Icons.feedback, 'label': 'Report and Issue'},
     {'icon': Icons.settings, 'label': 'Settings'},
   ];
+
+  void _navigateToProfile() {
+    setState(() {
+      _selectedSection = 8; // Profile section index
+    });
+  }
 
   Widget _getSelectedContent() {
     switch (_selectedSection) {
@@ -66,6 +73,8 @@ class _DashboardHomeState extends State<DashboardHome> {
         return const FeedbackWidget();
       case 7:
         return const SettingsWidget();
+      case 8:
+        return const AdminProfileWidget();
       default:
         return const OverviewWidget();
     }
@@ -76,7 +85,7 @@ class _DashboardHomeState extends State<DashboardHome> {
     return Scaffold(
       body: Column(
         children: [
-          const DashboardBanner(),
+          DashboardBanner(onProfileTap: _navigateToProfile),
           HorizontalMenuBar(
             sections: _sections,
             selectedIndex: _selectedSection,
