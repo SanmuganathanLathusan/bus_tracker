@@ -14,9 +14,9 @@ class DriverService {
   Future<String?> _getToken() => _authService.getToken();
 
   Map<String, String> _headers(String token) => {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer $token",
-      };
+    "Content-Type": "application/json",
+    "Authorization": "Bearer $token",
+  };
 
   dynamic _decodeResponse(http.Response response) {
     final body = response.body.isNotEmpty ? jsonDecode(response.body) : null;
@@ -34,14 +34,18 @@ class DriverService {
     if (token == null) throw Exception('Not authenticated');
 
     final uri = Uri.parse("$_baseUrl/assignments");
-    final response =
-        await http.get(uri, headers: _headers(token)).timeout(_timeout);
+    final response = await http
+        .get(uri, headers: _headers(token))
+        .timeout(_timeout);
     final data = _decodeResponse(response);
 
     if (data is List) {
       return data
-          .map((e) => RouteAssignment.fromJson(
-              e is Map<String, dynamic> ? e : Map<String, dynamic>.from(e)))
+          .map(
+            (e) => RouteAssignment.fromJson(
+              e is Map<String, dynamic> ? e : Map<String, dynamic>.from(e),
+            ),
+          )
           .toList();
     }
     return [];
@@ -70,18 +74,22 @@ class DriverService {
     final data = _decodeResponse(response);
     if (data is Map && data['assignment'] is Map) {
       return RouteAssignment.fromJson(
-          Map<String, dynamic>.from(data['assignment']));
+        Map<String, dynamic>.from(data['assignment']),
+      );
     }
     throw Exception('Unexpected response for assignment update');
   }
 
-  Future<Map<String, dynamic>> getAssignmentPassengers(String assignmentId) async {
+  Future<Map<String, dynamic>> getAssignmentPassengers(
+    String assignmentId,
+  ) async {
     final token = await _getToken();
     if (token == null) throw Exception('Not authenticated');
 
     final uri = Uri.parse("$_baseUrl/assignments/$assignmentId/passengers");
-    final response =
-        await http.get(uri, headers: _headers(token)).timeout(_timeout);
+    final response = await http
+        .get(uri, headers: _headers(token))
+        .timeout(_timeout);
     final data = _decodeResponse(response);
 
     if (data is Map<String, dynamic>) return data;
@@ -128,13 +136,15 @@ class DriverService {
     if (token == null) throw Exception('Not authenticated');
 
     final uri = Uri.parse("$_baseUrl/assignments/next-pending");
-    final response =
-        await http.get(uri, headers: _headers(token)).timeout(_timeout);
+    final response = await http
+        .get(uri, headers: _headers(token))
+        .timeout(_timeout);
     final data = _decodeResponse(response);
 
     if (data is Map && data['assignment'] != null) {
       return RouteAssignment.fromJson(
-          Map<String, dynamic>.from(data['assignment']));
+        Map<String, dynamic>.from(data['assignment']),
+      );
     }
     return null;
   }
@@ -145,8 +155,9 @@ class DriverService {
     if (token == null) throw Exception('Not authenticated');
 
     final uri = Uri.parse("$_baseUrl/trips");
-    final response =
-        await http.get(uri, headers: _headers(token)).timeout(_timeout);
+    final response = await http
+        .get(uri, headers: _headers(token))
+        .timeout(_timeout);
     final data = _decodeResponse(response);
 
     if (data is List) {
@@ -154,5 +165,19 @@ class DriverService {
     }
     return [];
   }
-}
 
+  // Get all tickets and reservations for driver
+  Future<Map<String, dynamic>> getTicketsAndReservations() async {
+    final token = await _getToken();
+    if (token == null) throw Exception('Not authenticated');
+
+    final uri = Uri.parse("$_baseUrl/tickets-reservations");
+    final response = await http
+        .get(uri, headers: _headers(token))
+        .timeout(_timeout);
+    final data = _decodeResponse(response);
+
+    if (data is Map<String, dynamic>) return data;
+    throw Exception('Unexpected tickets and reservations response');
+  }
+}
