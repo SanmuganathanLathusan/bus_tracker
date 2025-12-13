@@ -35,9 +35,7 @@ class LocationService {
       final token = await _getToken();
       if (token == null) throw Exception('Not authenticated');
 
-      final uri = Uri.parse(
-        "$baseUrl/routes/search?start=&destination=&date=$date",
-      );
+      final uri = Uri.parse("$baseUrl/routes/search?date=$date");
       final response = await http
           .get(uri, headers: _headers(token))
           .timeout(_timeout);
@@ -46,22 +44,32 @@ class LocationService {
 
       if (data is List) {
         // Filter for the specific route
-        final routeData = data.firstWhere(
-          (route) => route['route'] is Map && route['route']['_id'] == routeId,
-          orElse: () => <String, dynamic>{},
-        );
+        final routeDataList = data
+            .where(
+              (item) =>
+                  item is Map &&
+                  item['route'] is Map &&
+                  item['route']['_id'] == routeId,
+            )
+            .toList();
 
-        if (routeData.isEmpty) {
+        if (routeDataList.isEmpty) {
           return [];
         }
 
+        final routeData = routeDataList.first as Map;
+        final route = routeData['route'] as Map;
         final assignments = routeData['assignments'] as List? ?? [];
         final result = <Map<String, dynamic>>[];
 
         for (var assignment in assignments) {
-          if (assignment is Map && assignment['busId'] is Map) {
-            final bus = assignment['busId'] as Map;
-            final driver = assignment['driverId'] as Map?;
+          if (assignment is Map) {
+            final bus = assignment['busId'] is Map
+                ? assignment['busId'] as Map
+                : {};
+            final driver = assignment['driverId'] is Map
+                ? assignment['driverId'] as Map?
+                : null;
 
             result.add({
               'busId': bus['_id'],
@@ -69,7 +77,9 @@ class LocationService {
               'busName': bus['busName'],
               'location': bus['currentLocation'],
               'isLocationSharing': bus['isLocationSharing'] ?? false,
-              'driverName': driver != null ? driver['userName'] : 'Unknown',
+              'driverName': driver != null
+                  ? (driver['userName'] ?? driver['name'] ?? 'Unknown')
+                  : 'Unknown',
               'assignmentId': assignment['_id'],
               'scheduledTime': assignment['scheduledTime'],
               'status': assignment['status'],
