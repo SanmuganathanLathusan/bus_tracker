@@ -10,6 +10,7 @@ import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:waygo/services/reservation_service.dart';
+import 'package:waygo/user_screen/pages/route_tracking_page.dart';
 import 'package:http/http.dart' as http;
 
 /// Top-level isolate worker for accurate distance (km) using Haversine.
@@ -597,11 +598,21 @@ class _LiveLocationPageState extends State<LiveLocationPage>
         );
       }
 
-      final routes = await _reservationService.searchRoutes(
+      final results = await _reservationService.searchRoutes(
         start: _selectedFrom!,
         destination: _selectedTo!,
         date: dateForApi,
       );
+
+      // Extract nested 'route' object if present
+      final routes = results.map<Map<String, dynamic>>((r) {
+        final routeData = Map<String, dynamic>.from(r as Map);
+        // If the data has a nested 'route' object, extract it
+        if (routeData.containsKey('route') && routeData['route'] is Map) {
+          return Map<String, dynamic>.from(routeData['route'] as Map);
+        }
+        return routeData;
+      }).toList();
 
       if (!mounted) return;
 
