@@ -112,7 +112,7 @@ class _RouteDetailsScreenState extends State<RouteDetailsScreen> {
               ),
               const SizedBox(height: 8.0),
               Text(
-                'Total: \$${_calculateTotalAmount().toStringAsFixed(2)}',
+                'Total: LKR ${_calculateTotalAmount().toStringAsFixed(2)}',
                 style: AppTextStyles.heading.copyWith(
                   color: AppColors.waygoLightBlue,
                   fontSize: 24,
@@ -324,7 +324,7 @@ class _RouteDetailsScreenState extends State<RouteDetailsScreen> {
                               ),
                               const SizedBox(height: 6.0),
                               Text(
-                                '\$${route['price']?.toString() ?? '0'} per seat',
+                                'LKR ${route['price']?.toString() ?? '0'} per seat',
                                 style: AppTextStyles.subHeading.copyWith(
                                   color: AppColors.waygoLightBlue,
                                   fontWeight: FontWeight.bold,
@@ -491,7 +491,8 @@ class _RouteDetailsScreenState extends State<RouteDetailsScreen> {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
-              builder: (_) => Etickets(reservationId: reservationId),
+              builder: (_) =>
+                  Etickets(reservationId: reservationId, autoDownload: true),
             ),
           );
         }
