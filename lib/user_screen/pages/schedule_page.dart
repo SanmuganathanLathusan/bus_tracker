@@ -91,7 +91,14 @@ class _SchedulePageState extends State<SchedulePage> {
     try {
       final results = await _reservation_service_safeCall();
       final List<Map<String, dynamic>> normalized = (results ?? [])
-          .map<Map<String, dynamic>>((r) => Map<String, dynamic>.from(r as Map))
+          .map<Map<String, dynamic>>((r) {
+            final routeData = Map<String, dynamic>.from(r as Map);
+            // If the data has a nested 'route' object, extract it
+            if (routeData.containsKey('route') && routeData['route'] is Map) {
+              return Map<String, dynamic>.from(routeData['route'] as Map);
+            }
+            return routeData;
+          })
           .toList();
 
       setState(() {
@@ -392,12 +399,12 @@ class _SchedulePageState extends State<SchedulePage> {
 
     // Route number
     final routeNumber = r['routeNumber'] ?? '';
-    
+
     // Assignment/Schedule information
     final assignmentId = r['assignmentId']?.toString();
     final scheduledTime = r['scheduledTime']?.toString() ?? '';
     final driverName = r['driverName']?.toString();
-    
+
     // Live location information
     final hasLiveLocation = r['hasLiveLocation'] == true;
     final liveLocation = r['liveLocation'] as Map<String, dynamic>?;
@@ -484,7 +491,9 @@ class _SchedulePageState extends State<SchedulePage> {
                                     vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: AppColors.waygoLightBlue.withOpacity(0.2),
+                                    color: AppColors.waygoLightBlue.withOpacity(
+                                      0.2,
+                                    ),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
@@ -527,7 +536,9 @@ class _SchedulePageState extends State<SchedulePage> {
                                   MaterialPageRoute(
                                     builder: (_) => BusLiveLocationPage(
                                       busId: currentBusId,
-                                      busNumber: regNumber.isNotEmpty ? regNumber : null,
+                                      busNumber: regNumber.isNotEmpty
+                                          ? regNumber
+                                          : null,
                                       busName: busName,
                                       routeName: routeName,
                                       initialLocation: liveLocation,

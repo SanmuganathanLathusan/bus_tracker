@@ -95,7 +95,14 @@ class _EticketBookingPageState extends State<EticketBookingPage> {
         date: _dateForApi,
       );
       final List<Map<String, dynamic>> normalized = (results ?? [])
-          .map<Map<String, dynamic>>((r) => Map<String, dynamic>.from(r as Map))
+          .map<Map<String, dynamic>>((r) {
+            final routeData = Map<String, dynamic>.from(r as Map);
+            // If the data has a nested 'route' object, extract it
+            if (routeData.containsKey('route') && routeData['route'] is Map) {
+              return Map<String, dynamic>.from(routeData['route'] as Map);
+            }
+            return routeData;
+          })
           .toList();
 
       setState(() {
@@ -224,7 +231,9 @@ class _EticketBookingPageState extends State<EticketBookingPage> {
                               'Travel Date',
                               style: AppTextStyles.body.copyWith(
                                 fontSize: 11,
-                                color: AppColors.waygoLightBlue.withOpacity(0.8),
+                                color: AppColors.waygoLightBlue.withOpacity(
+                                  0.8,
+                                ),
                               ),
                             ),
                             const SizedBox(height: 2),
@@ -362,34 +371,30 @@ class _EticketBookingPageState extends State<EticketBookingPage> {
   }
 
   Widget _buildScheduleCard(Map<String, dynamic> r, int index) {
-    final routeData = r['routeId'] is Map
-        ? r['routeId'] as Map<String, dynamic>
-        : r;
-    final busData = r['busId'] is Map
-        ? r['busId'] as Map<String, dynamic>
-        : (r['bus'] is Map ? r['bus'] as Map<String, dynamic> : {});
+    // Route data is already extracted at top level from searchRoutes
+    // No need to check for nested routeId since we extracted it earlier
 
     // Route ID
-    final routeId = r['_id']?.toString() ?? routeData['_id']?.toString() ?? 'N/A';
-    
-    // Route information
-    final start = routeData['start'] ?? r['start'] ?? '';
-    final destination = routeData['destination'] ?? r['destination'] ?? '';
-    final routeName = '$start - $destination';
-    
-    // Times
-    final departure = routeData['departure'] ?? r['departure'] ?? r['startTime'] ?? '';
-    final arrival = routeData['arrival'] ?? r['arrival'] ?? r['endTime'] ?? '';
-    final duration = routeData['duration'] ?? r['duration'] ?? '';
-    
-    // Distance/Kilometers
-    final distance = routeData['distance'] ?? r['distance'];
-    final distanceStr = distance != null 
-        ? '${distance.toString()} km'
-        : '';
+    final routeId = r['_id']?.toString() ?? 'N/A';
 
-    final routeNumber = routeData['routeNumber']?.toString() ?? r['routeNumber']?.toString() ?? '';
-    final busName = busData['busName'] ?? routeData['busName'] ?? r['busName'] ?? 'Standard Service';
+    // Route information - use direct access since data is already extracted
+    final start = r['start'] ?? '';
+    final destination = r['destination'] ?? '';
+    final routeName = '$start - $destination';
+
+    // Times
+    final departure = r['departure'] ?? '';
+    final arrival = r['arrival'] ?? '';
+    final duration = r['duration'] ?? '';
+
+    // Distance/Kilometers
+    final distance = r['distance'];
+    final distanceStr = distance != null ? '${distance.toString()} km' : '';
+
+    final routeNumber = r['routeNumber']?.toString() ?? '';
+    final busName = r['busName'] ?? 'Standard Service';
+    final busType = r['busType'] ?? 'Standard';
+    final totalSeats = r['totalSeats'] ?? 40;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -416,7 +421,6 @@ class _EticketBookingPageState extends State<EticketBookingPage> {
               MaterialPageRoute(
                 builder: (_) => EticketPriceSelectionPage(
                   routeDetails: {
-                    ...r,
                     '_id': routeId,
                     'routeId': routeId,
                     'start': start,
@@ -427,12 +431,12 @@ class _EticketBookingPageState extends State<EticketBookingPage> {
                     'distance': distance,
                     'routeNumber': routeNumber,
                     'busName': busName,
-                    'busType': busData['busType'] ?? routeData['busType'] ?? r['busType'] ?? 'Standard',
-                    'totalSeats': busData['totalSeats'] ?? routeData['totalSeats'] ?? 40,
-                    'price': routeData['price'] ?? r['price'] ?? 0,
-                    'priceDeluxe': routeData['priceDeluxe'] ?? r['priceDeluxe'],
-                    'priceLuxury': routeData['priceLuxury'] ?? r['priceLuxury'],
-                    'bookedSeats': r['bookedSeats'] ?? [],
+                    'busType': busType,
+                    'totalSeats': totalSeats,
+                    // Prices from database - ensure they're passed as numbers
+                    'price': r['price'] ?? 0,
+                    'priceDeluxe': r['priceDeluxe'],
+                    'priceLuxury': r['priceLuxury'],
                   },
                   selectedDate: _selectedDate,
                 ),
@@ -548,7 +552,9 @@ class _EticketBookingPageState extends State<EticketBookingPage> {
                               Expanded(
                                 child: Container(
                                   height: 2,
-                                  color: AppColors.waygoLightBlue.withOpacity(0.3),
+                                  color: AppColors.waygoLightBlue.withOpacity(
+                                    0.3,
+                                  ),
                                 ),
                               ),
                               Icon(
@@ -559,7 +565,9 @@ class _EticketBookingPageState extends State<EticketBookingPage> {
                               Expanded(
                                 child: Container(
                                   height: 2,
-                                  color: AppColors.waygoLightBlue.withOpacity(0.3),
+                                  color: AppColors.waygoLightBlue.withOpacity(
+                                    0.3,
+                                  ),
                                 ),
                               ),
                               Container(
@@ -907,4 +915,3 @@ class _EticketBookingPageState extends State<EticketBookingPage> {
     );
   }
 }
-

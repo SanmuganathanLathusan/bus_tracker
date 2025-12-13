@@ -10,109 +10,112 @@ class PerformancePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 150, 208, 245),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 10),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // --- Title ---
+            Text("Performance Analytics", style: AppTextStyles.heading),
+            const SizedBox(height: 16),
 
-              // Title
-              Text("Performance Analytics", style: AppTextStyles.heading),
-              const SizedBox(height: 20),
-
-              // ---- Stats Grid ----
-              GridView.count(
-                crossAxisCount: 2,
-                childAspectRatio: 1.3,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                children: [
-                  _buildStatCard(
+            // --- Stats Row 1 ---
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatCard(
                     title: "Trips Completed",
                     value: "3",
                     icon: Icons.directions_bus,
                     color: AppColors.accentPrimary,
                   ),
-                  _buildStatCard(
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildStatCard(
                     title: "Punctuality",
                     value: "95%",
                     icon: Icons.schedule,
                     color: AppColors.accentSuccess,
                   ),
-                  _buildStatCard(
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 10),
+
+            // --- Stats Row 2 ---
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatCard(
                     title: "Average Rating",
                     value: "4.7⭐",
                     icon: Icons.star,
                     color: Colors.orange,
                   ),
-                  _buildStatCard(
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildStatCard(
                     title: "Distance Travelled",
                     value: "248 km",
                     icon: Icons.map,
                     color: Colors.purple,
                   ),
-                ],
-              ),
-
-              const SizedBox(height: 20),
-
-              // ---- Weekly Performance Chart ----
-              Text("Weekly Performance", style: AppTextStyles.subHeading),
-              const SizedBox(height: 10),
-
-              Card(
-                elevation: 4,
-                shadowColor: AppColors.shadowLight,
-                color: AppColors.backgroundSecondary,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
                 ),
-                child: const Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: SizedBox(height: 220, child: ChartWidget()),
-                ),
-              ),
+              ],
+            ),
 
-              const SizedBox(height: 26),
+            const SizedBox(height: 20),
 
-              // ---- Recent Ratings ----
-              Text("Recent Ratings", style: AppTextStyles.subHeading),
-              const SizedBox(height: 12),
+            // --- Chart Section ---
+            Text("Weekly Performance", style: AppTextStyles.subHeading),
+            const SizedBox(height: 10),
+            Card(
+              elevation: 3,
+              shadowColor: AppColors.shadowLight,
+              color: AppColors.backgroundSecondary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: SizedBox(height: 200, child: ChartWidget()),
+              ),
+            ),
 
-              _buildRatingCard(
-                passenger: "Alice Johnson",
-                rating: 5,
-                comment: "Great driver, very punctual!",
-                date: "Oct 30, 2025",
-              ),
-              _buildRatingCard(
-                passenger: "John Silva",
-                rating: 4,
-                comment: "Good service, bus was clean.",
-                date: "Oct 29, 2025",
-              ),
-              _buildRatingCard(
-                passenger: "Nimal Fernando",
-                rating: 5,
-                comment: "Excellent driving, felt safe.",
-                date: "Oct 28, 2025",
-              ),
+            const SizedBox(height: 24),
 
-              const SizedBox(height: 20),
-            ],
-          ),
+            // --- Ratings Section ---
+            Text("Recent Ratings", style: AppTextStyles.subHeading),
+            const SizedBox(height: 10),
+
+            _buildRatingCard(
+              passenger: "Alice Johnson",
+              rating: 5,
+              comment: "Great driver, very punctual!",
+              date: "Oct 30, 2025",
+            ),
+            _buildRatingCard(
+              passenger: "John Silva",
+              rating: 4,
+              comment: "Good service, bus was clean.",
+              date: "Oct 29, 2025",
+            ),
+            _buildRatingCard(
+              passenger: "Nimal Fernando",
+              rating: 5,
+              comment: "Excellent driving, felt safe.",
+              date: "Oct 28, 2025",
+            ),
+          ],
         ),
       ),
     );
   }
 
-  // ---------------------------------------------------------------------------------
-  // ORIGINAL FUNCTIONS — UNCHANGED AS REQUESTED
-  // ---------------------------------------------------------------------------------
+  // --- Helper Widgets ---
 
   Widget _buildStatCard({
     required String title,
@@ -168,6 +171,7 @@ class PerformancePage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // --- Header (Passenger + Stars) ---
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -183,9 +187,14 @@ class PerformancePage extends StatelessWidget {
                 ),
               ],
             ),
+
             const SizedBox(height: 8),
+
+            // --- Comment ---
             Text(comment, style: AppTextStyles.bodySmall),
             const SizedBox(height: 8),
+
+            // --- Date ---
             Text(date, style: AppTextStyles.caption.copyWith(fontSize: 11)),
           ],
         ),

@@ -21,10 +21,10 @@ class _PaymentPopupState extends State<PaymentPopup> {
     setState(() => _processing = true);
 
     try {
-      // Call Stripe payment
+      // Call Stripe payment with LKR amount from backend/database
       final success = await StripeService.makePayment(
         amount: widget.amount,
-        currency: 'usd', // or 'lkr' for Sri Lankan Rupees
+        currency: 'lkr',
         metadata: widget.metadata,
       );
 
@@ -88,7 +88,7 @@ class _PaymentPopupState extends State<PaymentPopup> {
 
             if (widget.amount > 0) ...[
               Text(
-                '\$${widget.amount.toStringAsFixed(2)}',
+                'LKR ${widget.amount.toStringAsFixed(2)}',
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,

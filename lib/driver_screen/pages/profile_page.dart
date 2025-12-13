@@ -1,5 +1,6 @@
 // lib/driver_screen/pages/profile_page.dart
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:waygo/utils/app_colors.dart';
@@ -12,7 +13,8 @@ class ProfilePage extends StatefulWidget {
     String? busNumber,
     String? busName,
     String? profileImage,
-  })? onProfileUpdated;
+  })?
+  onProfileUpdated;
 
   const ProfilePage({Key? key, this.onProfileUpdated}) : super(key: key);
 
@@ -24,6 +26,7 @@ class _ProfilePageState extends State<ProfilePage> {
   final _formKey = GlobalKey<FormState>();
   final ProfileService _profileService = ProfileService();
 
+  // editable fields
   String name = "";
   String driverId = "";
   String licenseNumber = "";
@@ -34,9 +37,9 @@ class _ProfilePageState extends State<ProfilePage> {
   String? profileImageUrl;
 
   File? _profileImageFile;
+  final ImagePicker _picker = ImagePicker();
   bool _isLoading = true;
   bool _isSaving = false;
-  final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
@@ -44,15 +47,12 @@ class _ProfilePageState extends State<ProfilePage> {
     _loadProfile();
   }
 
-  // ------------------------
-  // SAME FUNCTIONS
-  // ------------------------
   Future<void> _loadProfile() async {
     setState(() => _isLoading = true);
 
     try {
       final response = await _profileService.getProfile();
-      final user = response['user'];
+      final user = response['user'] as Map<String, dynamic>;
 
       if (!mounted) return;
       setState(() {
@@ -71,7 +71,7 @@ class _ProfilePageState extends State<ProfilePage> {
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error loading profile: $e'),
+          content: Text('Error loading profile: ${e.toString()}'),
           backgroundColor: Colors.red,
         ),
       );
@@ -91,6 +91,7 @@ class _ProfilePageState extends State<ProfilePage> {
         widget.onProfileUpdated?.call(profileImage: picked.path);
       }
     } catch (e) {
+      // handle / log error if needed
       debugPrint('Image pick error: $e');
     }
   }
@@ -98,91 +99,307 @@ class _ProfilePageState extends State<ProfilePage> {
   void _showImageOptions() {
     showModalBottomSheet(
       context: context,
-      builder: (_) => SafeArea(
-        child: Wrap(children: [
-          ListTile(
-            leading: const Icon(Icons.photo_library),
-            title: const Text("Choose from gallery"),
-            onTap: () {
-              Navigator.pop(context);
-              _pickImage(ImageSource.gallery);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.camera_alt),
-            title: const Text("Take a photo"),
-            onTap: () {
-              Navigator.pop(context);
-              _pickImage(ImageSource.camera);
-            },
-          ),
-          if (_profileImageFile != null)
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
             ListTile(
-              leading: const Icon(Icons.delete),
-              title: const Text("Remove picture"),
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Choose from gallery'),
               onTap: () {
                 Navigator.pop(context);
-                setState(() => _profileImageFile = null);
-                widget.onProfileUpdated?.call(profileImage: null);
+                _pickImage(ImageSource.gallery);
               },
             ),
-        ]),
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Take a photo'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage(ImageSource.camera);
+              },
+            ),
+            if (_profileImageFile != null)
+              ListTile(
+                leading: const Icon(Icons.delete_forever),
+                title: const Text('Remove photo'),
+                onTap: () {
+                  Navigator.pop(context);
+                  setState(() => _profileImageFile = null);
+                  widget.onProfileUpdated?.call(profileImage: null);
+                },
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
       ),
     );
   }
 
   void _saveProfile() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (_formKey.currentState!.validate()) {
+      _formKey.currentState!.save();
 
-    _formKey.currentState!.save();
-    setState(() => _isSaving = true);
+      setState(() => _isSaving = true);
 
-    try {
-      final response = await _profileService.updateProfile(
-        userName: name,
-        phone: contact,
-        licenseNumber: licenseNumber,
-        profileImage: _profileImageFile,
-      );
+      try {
+        final response = await _profileService.updateProfile(
+          userName: name,
+          phone: contact,
+          licenseNumber: licenseNumber,
+          profileImage: _profileImageFile,
+        );
 
-      final user = response['user'];
+        final user = response['user'] as Map<String, dynamic>;
 
-      if (!mounted) return;
+        if (!mounted) return;
 
-      setState(() {
-        name = user['userName'] ?? name;
-        contact = user['phone'] ?? contact;
-        licenseNumber = user['licenseNumber'] ?? licenseNumber;
-        busNumber = user['busNumber'] ?? busNumber;
-        busName = user['busName'];
-        profileImageUrl = user['profileImage'];
-        _isSaving = false;
-      });
+        // Update local state
+        setState(() {
+          name = user['userName'] ?? name;
+          contact = user['phone'] ?? contact;
+          licenseNumber = user['licenseNumber'] ?? licenseNumber;
+          busNumber = user['busNumber'] ?? busNumber;
+          busName = user['busName'];
+          profileImageUrl = user['profileImage'];
+          _isSaving = false;
+        });
 
-      widget.onProfileUpdated?.call(
-        name: name,
-        busNumber: busNumber,
-        busName: busName,
-        profileImage: profileImageUrl,
-      );
+        // Notify dashboard of profile update
+        widget.onProfileUpdated?.call(
+          name: name,
+          busNumber: busNumber,
+          busName: busName,
+          profileImage: profileImageUrl,
+        );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Profile updated successfully!"),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile updated successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating profile: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 
-      setState(() => _isSaving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error updating profile: $e'),
-          backgroundColor: Colors.red,
-        ),
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        backgroundColor: Color.fromARGB(255, 150, 208, 245),
+        body: Center(child: CircularProgressIndicator()),
       );
     }
+
+    return Scaffold(
+      backgroundColor: const Color.fromARGB(255, 150, 208, 245),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("Driver Profile", style: AppTextStyles.heading),
+              const SizedBox(height: 16),
+
+              // --- Profile Header ---
+              Card(
+                elevation: 3,
+                shadowColor: AppColors.shadowLight,
+                color: AppColors.backgroundSecondary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      GestureDetector(
+                        onTap: _showImageOptions,
+                        child: Stack(
+                          alignment: Alignment.bottomRight,
+                          children: [
+                            CircleAvatar(
+                              radius: 50,
+                              backgroundImage: _profileImageFile != null
+                                  ? FileImage(_profileImageFile!)
+                                  : (profileImageUrl != null &&
+                                        profileImageUrl!.isNotEmpty)
+                                  ? NetworkImage(
+                                          'http://10.0.2.2:5000$profileImageUrl',
+                                        )
+                                        as ImageProvider
+                                  : const NetworkImage(
+                                      'https://randomuser.me/api/portraits/men/1.jpg',
+                                    ),
+                            ),
+                            Container(
+                              margin: const EdgeInsets.only(
+                                right: 2,
+                                bottom: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.waygoLightBlue,
+                                shape: BoxShape.circle,
+                              ),
+                              padding: const EdgeInsets.all(6),
+                              child: const Icon(
+                                Icons.edit,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(name, style: AppTextStyles.title),
+                      const SizedBox(height: 4),
+                      Text("Senior Driver", style: AppTextStyles.bodySmall),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // --- Editable Personal Information ---
+              Text("Edit Information", style: AppTextStyles.subHeading),
+              const SizedBox(height: 10),
+
+              Card(
+                elevation: 3,
+                shadowColor: AppColors.shadowLight,
+                color: AppColors.backgroundSecondary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      _buildEditableField(
+                        label: "Full Name",
+                        initialValue: name,
+                        onSaved: (v) => name = v ?? name,
+                        validator: (v) => (v == null || v.trim().length < 2)
+                            ? 'Enter a valid name'
+                            : null,
+                      ),
+                      const Divider(),
+                      _buildEditableField(
+                        label: "Driver ID",
+                        initialValue: driverId.substring(
+                          0,
+                          driverId.length > 12 ? 12 : driverId.length,
+                        ),
+                        readOnly: true,
+                      ),
+                      const Divider(),
+                      _buildEditableField(
+                        label: "License Number",
+                        initialValue: licenseNumber,
+                        onSaved: (v) => licenseNumber = v ?? licenseNumber,
+                      ),
+                      const Divider(),
+                      _buildEditableField(
+                        label: "Contact",
+                        initialValue: contact,
+                        onSaved: (v) => contact = v ?? contact,
+                        validator: (v) => (v == null || v.trim().length < 7)
+                            ? 'Enter valid contact'
+                            : null,
+                      ),
+                      const Divider(),
+                      _buildEditableField(
+                        label: "Email",
+                        initialValue: email,
+                        onSaved: (v) => email = v ?? email,
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return null;
+                          final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
+                          return emailRegex.hasMatch(v)
+                              ? null
+                              : 'Invalid email';
+                        },
+                      ),
+                      const Divider(),
+                      _buildEditableField(
+                        label: "Assigned Bus",
+                        initialValue: busName != null
+                            ? '$busNumber - $busName'
+                            : busNumber,
+                        readOnly: true,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // --- Save Button ---
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _isSaving ? null : _saveProfile,
+                  icon: _isSaving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.save),
+                  label: Text(_isSaving ? "Saving..." : "Save Changes"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.accentPrimary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 30),
+
+              // --- Logout Button ---
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => _showLogoutDialog(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.accentError,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text("Logout", style: TextStyle(fontSize: 16)),
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildEditableField({
@@ -192,193 +409,57 @@ class _ProfilePageState extends State<ProfilePage> {
     FormFieldSetter<String>? onSaved,
     String? Function(String?)? validator,
   }) {
-    return TextFormField(
-      initialValue: initialValue,
-      readOnly: readOnly,
-      style: AppTextStyles.body,
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: AppTextStyles.bodySmall,
-        border: const UnderlineInputBorder(),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: TextFormField(
+        initialValue: initialValue,
+        readOnly: readOnly,
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: AppTextStyles.bodySmall,
+          border: InputBorder.none,
+        ),
+        onSaved: onSaved,
+        validator: validator,
       ),
-      validator: validator,
-      onSaved: onSaved,
     );
   }
 
   void _showLogoutDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (context) => AlertDialog(
         backgroundColor: AppColors.backgroundSecondary,
-        title: Text("Logout", style: AppTextStyles.subHeading),
-        content: Text("Are you sure?", style: AppTextStyles.body),
+        title: Text("Confirm Logout", style: AppTextStyles.subHeading),
+        content: Text(
+          "Are you sure you want to logout?",
+          style: AppTextStyles.body,
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
+            child: Text("Cancel", style: AppTextStyles.bodySmall),
           ),
           TextButton(
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.pop(context); // close dialog first
+
+              // ✅ Navigate to SignIn screen and clear history
               Navigator.pushNamedAndRemoveUntil(
                 context,
-                "/welcome",
-                (route) => false,
+                '/welcome', // make sure this route exists in MaterialApp
+                (route) => false, // remove all previous routes
               );
             },
-            child: Text("Logout",
-                style: TextStyle(color: AppColors.accentError)),
+            child: Text(
+              "Logout",
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.accentError,
+              ),
+            ),
           ),
         ],
       ),
-    );
-  }
-
-  // -----------------------------------------------------------
-  //                UPDATED UI (Same Logic, Cleaner)
-  // -----------------------------------------------------------
-  @override
-  Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: AppColors.backgroundPrimary,
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    return Scaffold(
-      backgroundColor: AppColors.backgroundPrimary,
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text("Driver Profile", style: AppTextStyles.heading),
-            const SizedBox(height: 20),
-
-            // ------------------ PROFILE CARD ------------------
-            _buildProfileHeader(),
-            const SizedBox(height: 20),
-
-            // ------------------ EDIT SECTION ------------------
-            Text("Edit Information", style: AppTextStyles.subHeading),
-            const SizedBox(height: 10),
-            _buildEditableCard(),
-
-            const SizedBox(height: 25),
-
-            // ------------------ SAVE BUTTON ------------------
-            _buildSaveButton(),
-            const SizedBox(height: 15),
-
-            // ------------------ LOGOUT BUTTON ------------------
-            _buildLogoutButton(),
-          ]),
-        ),
-      ),
-    );
-  }
-
-  // ------------------------
-  //   CLEANER UI WIDGETS
-  // ------------------------
-  Widget _buildProfileHeader() {
-    return Card(
-      elevation: 3,
-      color: AppColors.backgroundSecondary,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            GestureDetector(
-              onTap: _showImageOptions,
-              child: CircleAvatar(
-                radius: 55,
-                backgroundImage: _profileImageFile != null
-                    ? FileImage(_profileImageFile!)
-                    : (profileImageUrl != null)
-                        ? NetworkImage("http://10.0.2.2:5000$profileImageUrl")
-                        : const NetworkImage(
-                            "https://randomuser.me/api/portraits/men/1.jpg"),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(name, style: AppTextStyles.title),
-            Text("Senior Driver", style: AppTextStyles.bodySmall),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEditableCard() {
-    return Card(
-      elevation: 3,
-      color: AppColors.backgroundSecondary,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(children: [
-          _buildEditableField(
-            label: "Full Name",
-            initialValue: name,
-            onSaved: (v) => name = v ?? name,
-            validator: (v) =>
-                (v == null || v.isEmpty) ? "Enter valid name" : null,
-          ),
-          _buildEditableField(
-            label: "Driver ID",
-            initialValue: driverId,
-            readOnly: true,
-          ),
-          _buildEditableField(
-            label: "License Number",
-            initialValue: licenseNumber,
-            onSaved: (v) => licenseNumber = v ?? licenseNumber,
-          ),
-          _buildEditableField(
-            label: "Contact Number",
-            initialValue: contact,
-            onSaved: (v) => contact = v ?? contact,
-          ),
-          _buildEditableField(
-            label: "Email",
-            initialValue: email,
-            onSaved: (v) => email = v ?? email,
-          ),
-          _buildEditableField(
-            label: "Assigned Bus",
-            initialValue:
-                busName != null ? "$busNumber - $busName" : busNumber,
-            readOnly: true,
-          ),
-        ]),
-      ),
-    );
-  }
-
-  Widget _buildSaveButton() {
-    return ElevatedButton.icon(
-      onPressed: _isSaving ? null : _saveProfile,
-      icon: _isSaving
-          ? const CircularProgressIndicator(strokeWidth: 2, color: Colors.white)
-          : const Icon(Icons.save),
-      label: Text(_isSaving ? "Saving..." : "Save Changes"),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.accentPrimary,
-        padding: const EdgeInsets.symmetric(vertical: 15),
-      ),
-    );
-  }
-
-  Widget _buildLogoutButton() {
-    return ElevatedButton(
-      onPressed: () => _showLogoutDialog(context),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.accentError,
-        padding: const EdgeInsets.symmetric(vertical: 15),
-      ),
-      child: const Text("Logout"),
     );
   }
 }

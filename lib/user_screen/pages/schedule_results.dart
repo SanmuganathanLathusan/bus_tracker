@@ -24,7 +24,7 @@ class ScheduleResultsPage extends StatelessWidget {
                     subtitle: Text(
                       "${bus["from"]} ➝ ${bus["to"]}\nTime: ${bus["startTime"]} - ${bus["endTime"]}",
                     ),
-                    trailing: Text("Rs ${bus["price"]}"),
+                    trailing: Text("LKR ${bus["price"]}"),
                   ),
                 );
               },

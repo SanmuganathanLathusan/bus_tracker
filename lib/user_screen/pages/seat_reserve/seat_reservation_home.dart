@@ -64,14 +64,26 @@ class _SeatReservationHomeState extends State<SeatReservationHome> {
 
     try {
       final dateStr = DateFormat('yyyy-MM-dd').format(selectedDate);
-      final routes = await _reservationService.searchRoutes(
+      final results = await _reservationService.searchRoutes(
         start: start,
         destination: destination,
         date: dateStr,
       );
 
+      // Extract nested 'route' object if present
+      final List<Map<String, dynamic>> normalized = (results)
+          .map<Map<String, dynamic>>((r) {
+            final routeData = Map<String, dynamic>.from(r as Map);
+            // If the data has a nested 'route' object, extract it
+            if (routeData.containsKey('route') && routeData['route'] is Map) {
+              return Map<String, dynamic>.from(routeData['route'] as Map);
+            }
+            return routeData;
+          })
+          .toList();
+
       setState(() {
-        searchedRoutes = routes;
+        searchedRoutes = normalized;
         _isLoading = false;
       });
     } catch (e) {
@@ -92,7 +104,6 @@ class _SeatReservationHomeState extends State<SeatReservationHome> {
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       // Extend body to cover area behind AppBar/StatusBar
       extendBodyBehindAppBar: true,
@@ -280,85 +291,91 @@ class _SeatReservationHomeState extends State<SeatReservationHome> {
                   Expanded(
                     child: _isLoading
                         ? const Center(
-                            child: CircularProgressIndicator(color: Colors.white),
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                            ),
                           )
                         : _error != null
-                            ? Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      "Error: $_error",
-                                      style: const TextStyle(color: Colors.red),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                    const SizedBox(height: 10),
-                                    ElevatedButton(
-                                      onPressed: _performSearch,
-                                      child: const Text("Retry"),
-                                    ),
-                                  ],
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  "Error: $_error",
+                                  style: const TextStyle(color: Colors.red),
+                                  textAlign: TextAlign.center,
                                 ),
-                              )
-                            : AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 400),
-                                child: searchedRoutes.isEmpty
-                                    ? Center(
-                                        key: ValueKey(isSearching),
-                                        child: Text(
-                                          isSearching
-                                              ? "No buses found for this route"
-                                              : "Search for routes to see available buses",
-                                          style: AppTextStyles.body.copyWith(
-                                            color: Colors.white70,
-                                            fontSize: 14,
-                                          ),
-                                        ),
-                                      )
-                                    : ListView.builder(
-                                        key: ValueKey(searchedRoutes.length),
-                                        padding: EdgeInsets.zero,
-                                        itemCount: searchedRoutes.length,
-                                        itemBuilder: (context, index) {
-                                          final route = searchedRoutes[index];
-                                          final routeData = route['routeId'] is Map
-                                              ? route['routeId']
-                                              : route;
-                                          final busData = route['busId'] is Map
-                                              ? route['busId']
-                                              : {};
-                                          
-                                          return RouteCard(
-                                            start: routeData['start'] ?? route['start'] ?? '',
-                                            destination: routeData['destination'] ?? route['destination'] ?? '',
-                                            departure: routeData['departure'] ?? route['departure'] ?? '',
-                                            arrival: routeData['arrival'] ?? route['arrival'] ?? '',
-                                            duration: routeData['duration'] ?? route['duration'] ?? '',
-                                            bus: busData['busName'] ?? routeData['busName'] ?? route['busName'] ?? 'Bus',
-                                            onTap: () {
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (_) => RouteDetailsScreen(
-                                                    routeDetails: {
-                                                      ...route,
-                                                      '_id': route['_id'],
-                                                      'routeId': route['routeId'] is Map 
-                                                          ? route['routeId']['_id'] 
-                                                          : route['routeId'],
-                                                      'totalSeats': busData['totalSeats'] ?? routeData['totalSeats'] ?? 40,
-                                                      'price': routeData['price'] ?? route['price'] ?? 0,
-                                                      'bookedSeats': route['bookedSeats'] ?? [],
-                                                    },
-                                                    selectedDate: selectedDate,
-                                                  ),
-                                                ),
-                                              );
-                                            },
+                                const SizedBox(height: 10),
+                                ElevatedButton(
+                                  onPressed: _performSearch,
+                                  child: const Text("Retry"),
+                                ),
+                              ],
+                            ),
+                          )
+                        : AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 400),
+                            child: searchedRoutes.isEmpty
+                                ? Center(
+                                    key: ValueKey(isSearching),
+                                    child: Text(
+                                      isSearching
+                                          ? "No buses found for this route"
+                                          : "Search for routes to see available buses",
+                                      style: AppTextStyles.body.copyWith(
+                                        color: Colors.white70,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  )
+                                : ListView.builder(
+                                    key: ValueKey(searchedRoutes.length),
+                                    padding: EdgeInsets.zero,
+                                    itemCount: searchedRoutes.length,
+                                    itemBuilder: (context, index) {
+                                      final route = searchedRoutes[index];
+                                      // Route data is already extracted at top level
+
+                                      return RouteCard(
+                                        start: route['start'] ?? '',
+                                        destination: route['destination'] ?? '',
+                                        departure: route['departure'] ?? '',
+                                        arrival: route['arrival'] ?? '',
+                                        duration: route['duration'] ?? '',
+                                        bus: route['busName'] ?? 'Bus',
+                                        onTap: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) => RouteDetailsScreen(
+                                                routeDetails: {
+                                                  '_id': route['_id'],
+                                                  'routeId': route['_id'],
+                                                  'start': route['start'],
+                                                  'destination':
+                                                      route['destination'],
+                                                  'departure':
+                                                      route['departure'],
+                                                  'arrival': route['arrival'],
+                                                  'duration': route['duration'],
+                                                  'distance': route['distance'],
+                                                  'routeNumber':
+                                                      route['routeNumber'],
+                                                  'busName': route['busName'],
+                                                  'totalSeats':
+                                                      route['totalSeats'] ?? 40,
+                                                  // Price directly from database
+                                                  'price': route['price'] ?? 0,
+                                                },
+                                                selectedDate: selectedDate,
+                                              ),
+                                            ),
                                           );
                                         },
-                                      ),
-                              ),
+                                      );
+                                    },
+                                  ),
+                          ),
                   ),
                 ],
               ),
