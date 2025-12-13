@@ -93,7 +93,15 @@ exports.login = async (req, res) => {
 // GET USER PROFILE
 exports.getProfile = async (req, res) => {
   try {
-    const user = req.user;
+    const user = await User.findById(req.user._id)
+      .populate("busId", "busNumber busName")
+      .populate("currentAssignmentId")
+      .select("-password");
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
     res.json({
       user: {
         id: user._id,
@@ -101,10 +109,19 @@ exports.getProfile = async (req, res) => {
         userName: user.userName,
         email: user.email,
         phone: user.phone,
-        profileImage: user.profileImage
+        profileImage: user.profileImage,
+        licenseNumber: user.licenseNumber,
+        busId: user.busId?._id,
+        busNumber: user.busId?.busNumber,
+        busName: user.busId?.busName,
+        homeDepotId: user.homeDepotId,
+        currentAssignmentId: user.currentAssignmentId,
+        dutyStatus: user.dutyStatus,
+        isActive: user.isActive
       }
     });
   } catch (error) {
+    console.error("Get profile error:", error);
     res.status(500).json({ error: "Failed to get profile" });
   }
 };
@@ -196,25 +213,49 @@ exports.googleSignIn = async (req, res) => {
 exports.updateProfile = async (req, res) => {
   try {
     const userId = req.user._id;
-    const { userName, phone } = req.body;
-    const profileImage = req.file ? req.file.path : undefined;
+    const { userName, phone, licenseNumber } = req.body;
+    const profileImage = req.file ? `/uploads/profiles/${req.file.filename}` : undefined;
 
     const updateData = {};
     if (userName) updateData.userName = userName;
     if (phone) updateData.phone = phone;
+    if (licenseNumber) updateData.licenseNumber = licenseNumber;
     if (profileImage) updateData.profileImage = profileImage;
 
     const user = await User.findByIdAndUpdate(
       userId,
       updateData,
       { new: true }
-    ).select("-password");
+    )
+      .populate("busId", "busNumber busName")
+      .populate("currentAssignmentId")
+      .select("-password");
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
 
     res.json({
       message: "Profile updated successfully",
-      user
+      user: {
+        id: user._id,
+        userType: user.userType,
+        userName: user.userName,
+        email: user.email,
+        phone: user.phone,
+        profileImage: user.profileImage,
+        licenseNumber: user.licenseNumber,
+        busId: user.busId?._id,
+        busNumber: user.busId?.busNumber,
+        busName: user.busId?.busName,
+        homeDepotId: user.homeDepotId,
+        currentAssignmentId: user.currentAssignmentId,
+        dutyStatus: user.dutyStatus,
+        isActive: user.isActive
+      }
     });
   } catch (error) {
+    console.error("Update profile error:", error);
     res.status(500).json({ error: "Failed to update profile" });
   }
 };

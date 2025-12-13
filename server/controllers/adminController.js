@@ -9,6 +9,7 @@ const Feedback = require("../models/Feedback");
 const Maintenance = require("../models/Maintenance");
 const News = require("../models/News");
 const Depot = require("../models/Depot");
+const { notifyDriverAssignment } = require("../utils/notificationService");
 const {
   markDriverAssigned,
   releaseDriverIfIdle,
@@ -275,6 +276,11 @@ exports.createAssignment = async (req, res) => {
 
     // Populate the assignment for response
     const populatedAssignment = await populateAssignment(assignment._id);
+
+    // Send push notification to driver (async, don't wait)
+    notifyDriverAssignment(driverId, populatedAssignment).catch(err => {
+      console.error("Failed to send assignment notification:", err);
+    });
 
     res.status(201).json({
       message: "Assignment created successfully",
@@ -669,41 +675,184 @@ exports.getBusDriverStats = async (req, res) => {
   try {
     const buses = await Bus.find({ isActive: true })
       .populate("driverId", "userName email phone dutyStatus homeDepotId")
-      .populate("depotId", "name code city")
-      .select("-__v");
+      // NOTE: do not populate depotId here – some legacy records store the depot
+      // code (e.g. "DPT-01") instead of an ObjectId. We will resolve depots
+      // manually to avoid CastError on ObjectId.
+      .select("-__v")
+      .lean();
 
     const drivers = await User.find({
       userType: "driver",
       isActive: true,
     })
       .populate("busId", "busNumber busName assignmentStatus conditionStatus")
-      .populate("homeDepotId", "name code city")
-      .select("-password -__v");
+      // Same reasoning as buses: resolve homeDepotId manually to support both
+      // ObjectId and string depot codes.
+      .select("-password -__v")
+      .lean();
 
     const depots = await Depot.find({ isActive: true })
       .sort({ name: 1 })
-      .select("name code city address contactNumber capacity");
+      .select("name code city address contactNumber capacity")
+      .lean();
+
+    // Map active assignments to drivers and buses
+    const activeAssignments = await Assignment.find({
+      status: { $in: ["pending", "accepted"] },
+    })
+      .populate("routeId", "start destination routeNumber departure arrival")
+      .populate("busId", "busNumber busName")
+      .populate("driverId", "userName")
+      .select("routeId busId driverId status scheduledDate scheduledTime notes")
+      .lean();
+
+    const formatAssignment = (assignment) => ({
+      id: assignment._id.toString(),
+      status: assignment.status,
+      scheduledDate: assignment.scheduledDate,
+      scheduledTime: assignment.scheduledTime,
+      route: assignment.routeId
+        ? {
+            id: assignment.routeId._id?.toString(),
+            start: assignment.routeId.start,
+            destination: assignment.routeId.destination,
+            routeNumber: assignment.routeId.routeNumber,
+            departure: assignment.routeId.departure,
+            arrival: assignment.routeId.arrival,
+          }
+        : null,
+      bus: assignment.busId
+        ? {
+            id: assignment.busId._id?.toString(),
+            busNumber: assignment.busId.busNumber,
+            busName: assignment.busId.busName,
+          }
+        : null,
+      driver: assignment.driverId
+        ? {
+            id: assignment.driverId._id?.toString(),
+            userName: assignment.driverId.userName,
+          }
+        : null,
+      notes: assignment.notes,
+    });
+
+    const driverAssignmentMap = {};
+    const busAssignmentMap = {};
+
+    activeAssignments.forEach((assignment) => {
+      const formatted = formatAssignment(assignment);
+      if (assignment.driverId?._id) {
+        driverAssignmentMap[assignment.driverId._id.toString()] = formatted;
+      }
+      if (assignment.busId?._id) {
+        busAssignmentMap[assignment.busId._id.toString()] = formatted;
+      }
+    });
+
+    // Build depot lookup maps (by ObjectId and by depot code)
+    const depotsById = {};
+    const depotsByCode = {};
+    depots.forEach((depot) => {
+      if (depot._id) {
+        depotsById[depot._id.toString()] = depot;
+      }
+      if (depot.code) {
+        depotsByCode[depot.code.toString()] = depot;
+      }
+    });
+
+    const resolveDepot = (raw) => {
+      if (!raw) return null;
+      // If it's already a populated depot-like object
+      if (typeof raw === "object" && raw._id) {
+        const id = raw._id.toString();
+        return depotsById[id] || raw;
+      }
+      // Otherwise it might be an ObjectId or a string code
+      const value = raw.toString();
+      return depotsById[value] || depotsByCode[value] || null;
+    };
+
+    const busesWithAssignments = buses.map((bus) => ({
+      ...bus,
+      depotId: resolveDepot(bus.depotId),
+      currentAssignment: busAssignmentMap[bus._id.toString()] || null,
+    }));
+
+    const driversWithAssignments = drivers.map((driver) => ({
+      ...driver,
+      homeDepotId: resolveDepot(driver.homeDepotId),
+      currentAssignment: driverAssignmentMap[driver._id.toString()] || null,
+    }));
+
+    // Create a set of assigned bus IDs for quick lookup
+    const assignedBusIds = new Set(
+      busesWithAssignments
+        .filter((bus) => bus.assignmentStatus === "assigned" || bus.currentAssignmentId)
+        .map((bus) => bus._id.toString())
+    );
 
     const busGroups = {
-      workable: buses.filter((bus) => bus.conditionStatus === "workable"),
-      non_workable: buses.filter((bus) => bus.conditionStatus === "non_workable"),
-      maintenance: buses.filter((bus) => bus.conditionStatus === "maintenance"),
-      assigned: buses.filter((bus) => bus.assignmentStatus === "assigned"),
+      // Workable: All non-assigned buses (regardless of conditionStatus, except maintenance)
+      // This includes buses with conditionStatus "workable" and "non_workable" that are not assigned
+      workable: busesWithAssignments.filter(
+        (bus) => {
+          const busId = bus._id.toString();
+          const isAssigned = assignedBusIds.has(busId) || 
+                           bus.assignmentStatus === "assigned" || 
+                           bus.currentAssignmentId;
+          const isMaintenance = bus.conditionStatus === "maintenance";
+          // Include if not assigned and not in maintenance
+          return !isAssigned && !isMaintenance;
+        }
+      ),
+      // Non-workable: Keep for reference but these will also appear in workable if not assigned
+      non_workable: busesWithAssignments.filter(
+        (bus) => {
+          const busId = bus._id.toString();
+          const isAssigned = assignedBusIds.has(busId) || 
+                           bus.assignmentStatus === "assigned" || 
+                           bus.currentAssignmentId;
+          return bus.conditionStatus === "non_workable" && !isAssigned;
+        }
+      ),
+      // Maintenance: Buses in maintenance (regardless of assignment status)
+      maintenance: busesWithAssignments.filter(
+        (bus) => bus.conditionStatus === "maintenance"
+      ),
+      // Assigned: Buses that are currently assigned to an assignment
+      assigned: busesWithAssignments.filter(
+        (bus) => {
+          const busId = bus._id.toString();
+          return assignedBusIds.has(busId) || 
+                 bus.assignmentStatus === "assigned" || 
+                 bus.currentAssignmentId != null;
+        }
+      ),
     };
 
     const driverGroups = {
-      available: drivers.filter((driver) => driver.dutyStatus === "available"),
-      assigned: drivers.filter((driver) => driver.dutyStatus === "assigned"),
-      off_duty: drivers.filter((driver) => driver.dutyStatus === "off_duty"),
-      on_leave: drivers.filter((driver) => driver.dutyStatus === "on_leave"),
+      available: driversWithAssignments.filter(
+        (driver) => driver.dutyStatus === "available"
+      ),
+      assigned: driversWithAssignments.filter(
+        (driver) => driver.dutyStatus === "assigned"
+      ),
+      off_duty: driversWithAssignments.filter(
+        (driver) => driver.dutyStatus === "off_duty"
+      ),
+      on_leave: driversWithAssignments.filter(
+        (driver) => driver.dutyStatus === "on_leave"
+      ),
     };
 
     res.json({
       stats: {
-        totalBuses: buses.length,
-        workableBuses: busGroups.workable.length,
+        totalBuses: busesWithAssignments.length,
+        workableBuses: busGroups.workable.length, // All non-assigned buses (excluding maintenance)
         assignedBuses: busGroups.assigned.length,
-        totalDrivers: drivers.length,
+        totalDrivers: driversWithAssignments.length,
         availableDrivers: driverGroups.available.length,
         assignedDrivers: driverGroups.assigned.length,
       },
@@ -713,7 +862,9 @@ exports.getBusDriverStats = async (req, res) => {
     });
   } catch (error) {
     console.error("Get bus driver stats error:", error);
-    res.status(500).json({ error: "Failed to fetch bus and driver statistics" });
+    res
+      .status(500)
+      .json({ error: "Failed to fetch bus and driver statistics" });
   }
 };
 
@@ -822,6 +973,133 @@ exports.updateDriverDutyStatus = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: "Failed to update driver status" });
+  }
+};
+
+// RESET DRIVER ASSIGNMENT (force available)
+exports.resetDriverAssignment = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const driver = await User.findOne({ _id: id, userType: "driver" });
+    if (!driver) {
+      return res.status(404).json({ error: "Driver not found" });
+    }
+
+    const activeAssignment = await Assignment.findOne({
+      driverId: id,
+      status: { $in: ["pending", "accepted"] },
+    });
+
+    if (activeAssignment) {
+      activeAssignment.status = "rejected";
+      activeAssignment.updatedAt = new Date();
+      const mergedNotes = [activeAssignment.notes, "[System] Assignment reset by admin"]
+        .filter((note) => typeof note === "string" && note.trim().length > 0)
+        .join(" | ");
+      activeAssignment.notes = mergedNotes;
+      await activeAssignment.save();
+
+      await releaseDriverIfIdle(id, activeAssignment._id);
+      if (activeAssignment.busId) {
+        await releaseBusIfIdle(activeAssignment.busId, activeAssignment._id);
+      }
+    }
+
+    const updatedDriver = await User.findByIdAndUpdate(
+      id,
+      {
+        dutyStatus: "available",
+        currentAssignmentId: null,
+      },
+      { new: true }
+    ).select("-password");
+
+    res.json({
+      message: "Driver reset to available",
+      driver: updatedDriver,
+      clearedAssignmentId: activeAssignment?._id,
+    });
+  } catch (error) {
+    console.error("Reset driver assignment error:", error);
+    res.status(500).json({ error: "Failed to reset driver assignment" });
+  }
+};
+
+// GET PRICING STATISTICS WITH ROUTE DATA
+exports.getPricingStats = async (req, res) => {
+  try {
+    // Get all active routes with bus information
+    const routes = await Route.find({ isActive: true })
+      .populate("busId", "busNumber busName totalSeats busType")
+      .select("routeNumber start destination departure arrival price priceDeluxe priceLuxury totalSeats distance busId busName")
+      .sort({ start: 1, destination: 1 });
+
+    // Get all paid reservations
+    const reservations = await Reservation.find({ status: "paid" })
+      .populate("routeId", "routeNumber start destination price")
+      .select("routeId seats date amount");
+
+    // Calculate stats per route
+    const routeStats = routes.map(route => {
+      const routeReservations = reservations.filter(
+        r => r.routeId && r.routeId._id.toString() === route._id.toString()
+      );
+      
+      const totalSold = routeReservations.reduce((sum, res) => sum + (res.seats?.length || 0), 0);
+      const totalIncome = routeReservations.reduce((sum, res) => sum + (res.amount || 0), 0);
+      
+      // Determine price based on bus type
+      const busType = route.busId?.busType || "standard";
+      let routePrice = route.price;
+      if (busType === "deluxe" && route.priceDeluxe) {
+        routePrice = route.priceDeluxe;
+      } else if (busType === "luxury" && route.priceLuxury) {
+        routePrice = route.priceLuxury;
+      }
+
+      return {
+        routeId: route._id.toString(),
+        routeNumber: route.routeNumber || `R${route._id.toString().substring(0, 6)}`,
+        route: `${route.start} - ${route.destination}`,
+        start: route.start,
+        destination: route.destination,
+        departure: route.departure,
+        arrival: route.arrival,
+        price: routePrice,
+        priceDeluxe: route.priceDeluxe,
+        priceLuxury: route.priceLuxury,
+        capacity: route.totalSeats || route.busId?.totalSeats || 40,
+        sold: totalSold,
+        income: totalIncome,
+        availableSeats: (route.totalSeats || route.busId?.totalSeats || 40) - totalSold,
+        reservation: route.isActive ? 'Enabled' : 'Disabled',
+        busNumber: route.busId?.busNumber || '',
+        busName: route.busName || route.busId?.busName || '',
+        busType: busType,
+        distance: route.distance || null,
+      };
+    });
+
+    // Calculate overall statistics
+    const totalIncome = routeStats.reduce((sum, r) => sum + r.income, 0);
+    const totalSold = routeStats.reduce((sum, r) => sum + r.sold, 0);
+    const avgPrice = routeStats.length > 0
+      ? routeStats.reduce((sum, r) => sum + r.price, 0) / routeStats.length
+      : 0;
+
+    res.json({
+      routes: routeStats,
+      stats: {
+        totalIncome,
+        totalSold,
+        averagePrice: avgPrice,
+        activeRoutes: routeStats.length,
+      },
+    });
+  } catch (error) {
+    console.error("Get pricing stats error:", error);
+    res.status(500).json({ error: "Failed to fetch pricing statistics" });
   }
 };
 
