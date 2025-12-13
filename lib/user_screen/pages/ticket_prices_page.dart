@@ -27,21 +27,20 @@ class RoutePrice {
   });
 
   factory RoutePrice.fromJson(Map<String, dynamic> json) {
-    final prices = json['prices'] as Map<String, dynamic>? ?? {};
     return RoutePrice(
       routeNumber: json['routeNumber']?.toString() ?? 'N/A',
-      route: json['route']?.toString() ?? '',
+      route: '${json['start'] ?? ''} - ${json['destination'] ?? ''}',
       distance: json['distance'] != null
           ? (json['distance'] as num).toDouble()
           : null,
-      normalPrice: prices['normal'] != null
-          ? (prices['normal'] as num).toDouble()
+      normalPrice: json['price'] != null
+          ? (json['price'] as num).toDouble()
           : 0.0,
-      semiLuxuriousPrice: prices['semiLuxurious'] != null
-          ? (prices['semiLuxurious'] as num).toDouble()
+      semiLuxuriousPrice: json['priceDeluxe'] != null
+          ? (json['priceDeluxe'] as num).toDouble()
           : null,
-      luxuryPrice: prices['luxury'] != null
-          ? (prices['luxury'] as num).toDouble()
+      luxuryPrice: json['priceLuxury'] != null
+          ? (json['priceLuxury'] as num).toDouble()
           : null,
     );
   }
@@ -337,7 +336,7 @@ class _TicketPricesPageState extends State<TicketPricesPage> {
                                     ),
                                     DataCell(
                                       Text(
-                                        'Rs ${route.normalPrice.toStringAsFixed(0)}',
+                                        'LKR ${route.normalPrice.toStringAsFixed(0)}',
                                         style: AppTextStyles.body.copyWith(
                                           color: AppColors.waygoDarkBlue,
                                           fontWeight: FontWeight.w600,
@@ -348,7 +347,7 @@ class _TicketPricesPageState extends State<TicketPricesPage> {
                                     DataCell(
                                       Text(
                                         route.semiLuxuriousPrice != null
-                                            ? 'Rs ${route.semiLuxuriousPrice!.toStringAsFixed(0)}'
+                                            ? 'LKR ${route.semiLuxuriousPrice!.toStringAsFixed(0)}'
                                             : 'N/A',
                                         style: AppTextStyles.body.copyWith(
                                           color:
@@ -366,7 +365,7 @@ class _TicketPricesPageState extends State<TicketPricesPage> {
                                     DataCell(
                                       Text(
                                         route.luxuryPrice != null
-                                            ? 'Rs ${route.luxuryPrice!.toStringAsFixed(0)}'
+                                            ? 'LKR ${route.luxuryPrice!.toStringAsFixed(0)}'
                                             : 'N/A',
                                         style: AppTextStyles.body.copyWith(
                                           color: route.luxuryPrice != null
