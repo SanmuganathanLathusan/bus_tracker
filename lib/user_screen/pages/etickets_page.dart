@@ -12,7 +12,9 @@ import 'package:waygo/utils/app_text_styles.dart';
 
 class Etickets extends StatefulWidget {
   final String? reservationId;
-  const Etickets({super.key, this.reservationId});
+  final bool autoDownload;
+
+  const Etickets({super.key, this.reservationId, this.autoDownload = false});
 
   @override
   State<Etickets> createState() => _EticketsState();
@@ -25,6 +27,7 @@ class _EticketsState extends State<Etickets> {
   bool _isLoading = true;
   String? _error;
   bool _isDownloading = false;
+  bool _autoDownloadTriggered = false;
 
   @override
   void initState() {
@@ -43,11 +46,14 @@ class _EticketsState extends State<Etickets> {
     });
 
     try {
-      final reservation = await _reservationService.getReservationById(widget.reservationId!);
+      final reservation = await _reservationService.getReservationById(
+        widget.reservationId!,
+      );
       setState(() {
         _reservation = reservation;
         _isLoading = false;
       });
+      _maybeAutoDownload();
     } catch (e) {
       setState(() {
         _error = e.toString();
@@ -65,12 +71,15 @@ class _EticketsState extends State<Etickets> {
     try {
       final reservations = await _reservationService.getUserReservations();
       // Show only paid reservations
-      final paidReservations = reservations.where((r) => r['status'] == 'paid').toList();
+      final paidReservations = reservations
+          .where((r) => r['status'] == 'paid')
+          .toList();
       if (paidReservations.isNotEmpty) {
         setState(() {
           _reservation = paidReservations.first;
           _isLoading = false;
         });
+        _maybeAutoDownload();
       } else {
         setState(() {
           _error = 'No tickets found';
@@ -83,6 +92,18 @@ class _EticketsState extends State<Etickets> {
         _isLoading = false;
       });
     }
+  }
+
+  void _maybeAutoDownload() {
+    if (!widget.autoDownload ||
+        _autoDownloadTriggered ||
+        _reservation == null) {
+      return;
+    }
+    _autoDownloadTriggered = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _downloadTicket();
+    });
   }
 
   Future<void> _downloadTicket() async {
@@ -100,7 +121,8 @@ class _EticketsState extends State<Etickets> {
     try {
       setState(() => _isDownloading = true);
       final token = await _authService.getToken();
-      if (token == null) throw Exception('Login expired. Please sign in again.');
+      if (token == null)
+        throw Exception('Login expired. Please sign in again.');
 
       final downloadUrl =
           "${ReservationService.baseUrl}/reservations/$reservationId/download";
@@ -119,9 +141,9 @@ class _EticketsState extends State<Etickets> {
       );
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ticket saved to $filePath')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Ticket saved to $filePath')));
       await OpenFilex.open(filePath);
     } catch (e) {
       if (mounted) {
@@ -147,32 +169,36 @@ class _EticketsState extends State<Etickets> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text('Error: $_error'),
-                      ElevatedButton(
-                        onPressed: widget.reservationId != null ? _loadReservation : _loadUserReservations,
-                        child: const Text('Retry'),
-                      ),
-                    ],
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('Error: $_error'),
+                  ElevatedButton(
+                    onPressed: widget.reservationId != null
+                        ? _loadReservation
+                        : _loadUserReservations,
+                    child: const Text('Retry'),
                   ),
-                )
-              : _reservation == null
-                  ? const Center(child: Text('No ticket found'))
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: _buildTicketCard(),
-                    ),
+                ],
+              ),
+            )
+          : _reservation == null
+          ? const Center(child: Text('No ticket found'))
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: _buildTicketCard(),
+            ),
     );
   }
 
   Widget _buildTicketCard() {
-    final route = _reservation!['routeId'] is Map ? _reservation!['routeId'] : {};
+    final route = _reservation!['routeId'] is Map
+        ? _reservation!['routeId']
+        : {};
     final bus = _reservation!['busId'] is Map ? _reservation!['busId'] : {};
     final user = _reservation!['userId'] is Map ? _reservation!['userId'] : {};
-    
+
     DateTime? travelDate;
     if (_reservation!['date'] != null) {
       if (_reservation!['date'] is String) {
@@ -180,7 +206,9 @@ class _EticketsState extends State<Etickets> {
       } else if (_reservation!['date'] is Map) {
         final dateMap = _reservation!['date'] as Map;
         if (dateMap['\$date'] != null) {
-          travelDate = DateTime.fromMillisecondsSinceEpoch(dateMap['\$date'] as int);
+          travelDate = DateTime.fromMillisecondsSinceEpoch(
+            dateMap['\$date'] as int,
+          );
         }
       }
     }
@@ -220,7 +248,10 @@ class _EticketsState extends State<Etickets> {
                   ],
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.green,
                     borderRadius: BorderRadius.circular(8),
@@ -257,7 +288,11 @@ class _EticketsState extends State<Etickets> {
                     ],
                   ),
                 ),
-                const Icon(Icons.arrow_forward, size: 32, color: AppColors.waygoLightBlue),
+                const Icon(
+                  Icons.arrow_forward,
+                  size: 32,
+                  color: AppColors.waygoLightBlue,
+                ),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
@@ -281,11 +316,20 @@ class _EticketsState extends State<Etickets> {
 
             // Ticket Details
             _buildDetailRow('Ticket ID', ticketId),
-            _buildDetailRow('Date', DateFormat('dd MMM yyyy').format(travelDate)),
-            _buildDetailRow('Seats', (_reservation!['seats'] as List?)?.join(', ') ?? 'N/A'),
+            _buildDetailRow(
+              'Date',
+              DateFormat('dd MMM yyyy').format(travelDate),
+            ),
+            _buildDetailRow(
+              'Seats',
+              (_reservation!['seats'] as List?)?.join(', ') ?? 'N/A',
+            ),
             _buildDetailRow('Bus', bus['busName'] ?? route['busName'] ?? 'N/A'),
             _buildDetailRow('Passenger', user['userName'] ?? 'N/A'),
-            _buildDetailRow('Amount', 'Rs. ${_reservation!['totalAmount'] ?? 0}'),
+            _buildDetailRow(
+              'Amount',
+              'Rs. ${_reservation!['totalAmount'] ?? 0}',
+            ),
             const Divider(height: 32),
 
             // QR Code
@@ -332,7 +376,9 @@ class _EticketsState extends State<Etickets> {
                       ),
                     )
                   : const Icon(Icons.download),
-              label: Text(_isDownloading ? 'Downloading...' : 'Download Ticket'),
+              label: Text(
+                _isDownloading ? 'Downloading...' : 'Download Ticket',
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.waygoLightBlue,
                 padding: const EdgeInsets.symmetric(vertical: 14),
@@ -359,13 +405,10 @@ class _EticketsState extends State<Etickets> {
           ),
           Text(
             value,
-            style: AppTextStyles.body.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+            style: AppTextStyles.body.copyWith(fontWeight: FontWeight.bold),
           ),
         ],
       ),
     );
   }
 }
-
