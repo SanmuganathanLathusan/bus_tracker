@@ -5,7 +5,7 @@ import 'package:waygo/driver_screen/widgets/route_assignment.dart';
 import 'package:waygo/services/profile_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// Import all driver pages
+// Import driver pages
 import 'pages/trip_overview_page.dart';
 import 'pages/live_map_page.dart';
 import 'pages/passenger_list_page.dart';
@@ -21,10 +21,11 @@ class DriverDashboard extends StatefulWidget {
   const DriverDashboard({Key? key}) : super(key: key);
 
   @override
-  _DriverDashboardState createState() => _DriverDashboardState();
+  State<DriverDashboard> createState() => _DriverDashboardState();
 }
 
 class _DriverDashboardState extends State<DriverDashboard> {
+
   int _currentIndex = 0;
   final ProfileService _profileService = ProfileService();
 
@@ -32,6 +33,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
   String _busNumber = "Loading...";
   String _currentRoute = "No route assigned";
   String? _profileImageUrl;
+
   RouteAssignment? _assignedRoute;
   bool _isLoadingProfile = true;
 
@@ -43,8 +45,8 @@ class _DriverDashboardState extends State<DriverDashboard> {
 
   Future<void> _loadDriverProfile() async {
     try {
-      // Load from SharedPreferences first for instant display
       final prefs = await SharedPreferences.getInstance();
+
       final cachedName = prefs.getString('driverName');
       final cachedBus = prefs.getString('busNumber');
       final cachedImage = prefs.getString('profileImage');
@@ -57,11 +59,11 @@ class _DriverDashboardState extends State<DriverDashboard> {
         });
       }
 
-      // Then fetch latest from API
       final response = await _profileService.getProfile();
       final user = response['user'] as Map<String, dynamic>;
 
       if (!mounted) return;
+
       setState(() {
         _driverName = user['userName'] ?? 'Driver';
         _busNumber = user['busNumber'] ?? 'Not Assigned';
@@ -69,17 +71,24 @@ class _DriverDashboardState extends State<DriverDashboard> {
         _isLoadingProfile = false;
       });
 
-      // Cache the values
       await prefs.setString('driverName', _driverName);
+
       if (_busNumber != 'Not Assigned') {
         await prefs.setString('busNumber', _busNumber);
       }
+
       if (_profileImageUrl != null) {
         await prefs.setString('profileImage', _profileImageUrl!);
       }
+
     } catch (e) {
+
       if (!mounted) return;
-      setState(() => _isLoadingProfile = false);
+
+      setState(() {
+        _isLoadingProfile = false;
+      });
+
       debugPrint('Error loading profile: $e');
     }
   }
@@ -90,60 +99,75 @@ class _DriverDashboardState extends State<DriverDashboard> {
     String? busName,
     String? profileImage,
   }) async {
+
     setState(() {
       if (name != null) _driverName = name;
+
       if (busNumber != null) {
         _busNumber = busName != null ? '$busNumber' : busNumber;
       }
-      if (profileImage != null) _profileImageUrl = profileImage;
+
+      if (profileImage != null) {
+        _profileImageUrl = profileImage;
+      }
     });
 
-    // Update cache
     final prefs = await SharedPreferences.getInstance();
-    if (name != null) await prefs.setString('driverName', name);
-    if (busNumber != null) await prefs.setString('busNumber', busNumber);
-    if (profileImage != null)
+
+    if (name != null) {
+      await prefs.setString('driverName', name);
+    }
+
+    if (busNumber != null) {
+      await prefs.setString('busNumber', busNumber);
+    }
+
+    if (profileImage != null) {
       await prefs.setString('profileImage', profileImage);
+    }
   }
 
   void _handleRouteUpdate(RouteAssignment updatedRoute) async {
+
     final prefs = await SharedPreferences.getInstance();
 
     setState(() {
       _assignedRoute = updatedRoute;
+
       if (updatedRoute.isAccepted) {
+
         _currentRoute =
             "${updatedRoute.fromLocation} → ${updatedRoute.toLocation}";
-        if ((updatedRoute.busNumber ?? updatedRoute.busName)?.isNotEmpty ??
-            false) {
+
+        if ((updatedRoute.busNumber ?? updatedRoute.busName)?.isNotEmpty ?? false) {
           _busNumber =
               updatedRoute.busNumber ?? updatedRoute.busName ?? _busNumber;
         }
+
       } else if (updatedRoute.isRejected) {
+
         _currentRoute = "Route rejected";
+
       } else if (updatedRoute.isPending) {
+
         _currentRoute = "Awaiting confirmation";
+
       } else {
+
         _currentRoute = "No route assigned";
       }
     });
 
-    // Cache the bus number if assigned
     if (updatedRoute.isAccepted &&
         (updatedRoute.busNumber ?? updatedRoute.busName)?.isNotEmpty == true) {
+
       await prefs.setString('busNumber', _busNumber);
     }
   }
 
-  // void _updateRoute(String from, String to) {
-  //   setState(() {
-  //     _currentRoute = "$from → $to";
-  //   });
-  // }
-
-  @override
-  Widget build(BuildContext context) {
-    final pages = [
+  // ---------- PAGES ----------
+  List<Widget> _buildPages() {
+    return [
       TripOverviewPage(
         key: ValueKey("trip-${_assignedRoute?.id ?? 'none'}"),
         activeAssignment: _assignedRoute,
@@ -160,7 +184,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
           });
         },
       ),
-      LiveMapPage(busId: _busNumber), // Keep as is for manual activation
+      LiveMapPage(busId: _busNumber),
       PassengerListPage(
         key: ValueKey(_assignedRoute?.id ?? 'no-assignment'),
         activeAssignment: _assignedRoute,
@@ -176,9 +200,16 @@ class _DriverDashboardState extends State<DriverDashboard> {
       NotificationsPage(),
       ProfilePage(onProfileUpdated: _handleProfileUpdate),
     ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+
+    final pages = _buildPages();
 
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 113, 171, 209),
+
       body: Column(
         children: [
           _buildTopBanner(),
@@ -186,6 +217,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
           Expanded(child: pages[_currentIndex]),
         ],
       ),
+
       bottomNavigationBar: _buildBottomNavigation(),
     );
   }
@@ -194,32 +226,33 @@ class _DriverDashboardState extends State<DriverDashboard> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
+
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFF0B1E36), Color(0xFF102C54), Color(0xFF1E4777)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF0B1E36),
+            Color(0xFF102C54),
+            Color(0xFF1E4777)
+          ],
         ),
         borderRadius: BorderRadius.only(
           bottomLeft: Radius.circular(26),
           bottomRight: Radius.circular(26),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black26,
-            offset: Offset(0, 4),
-            blurRadius: 10,
-          ),
-        ],
       ),
+
       child: SafeArea(
         bottom: false,
+
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+
           children: [
+
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+
                 Text(
                   "Driver Dashboard",
                   style: AppTextStyles.heading.copyWith(
@@ -227,35 +260,43 @@ class _DriverDashboardState extends State<DriverDashboard> {
                     fontSize: 24,
                   ),
                 ),
+
                 Row(
                   children: [
+
                     IconButton(
                       onPressed: () => setState(() => _currentIndex = 7),
-                      icon: const Icon(
-                        Icons.notifications,
-                        color: Colors.white,
-                      ),
+                      icon: const Icon(Icons.notifications, color: Colors.white),
                     ),
+
                     IconButton(
                       onPressed: () => setState(() => _currentIndex = 8),
                       icon: const Icon(Icons.person, color: Colors.white),
                     ),
+
                   ],
-                ),
+                )
               ],
             ),
+
             const SizedBox(height: 10),
+
             Text(
               "Driver: $_driverName",
               style: AppTextStyles.body.copyWith(
                 color: Colors.white.withOpacity(0.95),
               ),
             ),
+
             const SizedBox(height: 4),
+
             Text(
               "Bus: $_busNumber  |  Route: $_currentRoute",
-              style: AppTextStyles.bodySmall.copyWith(color: Colors.white70),
+              style: AppTextStyles.bodySmall.copyWith(
+                color: Colors.white70,
+              ),
             ),
+
           ],
         ),
       ),
@@ -264,12 +305,13 @@ class _DriverDashboardState extends State<DriverDashboard> {
 
   Widget _buildFloatingStatCards() {
     return Padding(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.all(16),
+
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         children: [
+
           Row(
-            children: [
+            children: const [
               Expanded(
                 child: SizedBox(
                   height: 90,
@@ -277,11 +319,13 @@ class _DriverDashboardState extends State<DriverDashboard> {
                     title: "Total Trips Today",
                     value: "3",
                     icon: Icons.directions_bus,
-                    color: const Color(0xFF42A5F5),
+                    color: Color(0xFF42A5F5),
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
+
+              SizedBox(width: 10),
+
               Expanded(
                 child: SizedBox(
                   height: 90,
@@ -289,40 +333,13 @@ class _DriverDashboardState extends State<DriverDashboard> {
                     title: "Passengers Onboard",
                     value: "24",
                     icon: Icons.people,
-                    color: const Color(0xFF66BB6A),
+                    color: Color(0xFF66BB6A),
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: SizedBox(
-                  height: 90,
-                  child: StatCard(
-                    title: "Time Remaining",
-                    value: "45 min",
-                    icon: Icons.access_time,
-                    color: const Color(0xFFFFA726),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: SizedBox(
-                  height: 90,
-                  child: StatCard(
-                    title: "Average Rating",
-                    value: "4.7⭐",
-                    icon: Icons.star,
-                    color: const Color(0xFFAB47BC),
-                  ),
-                ),
-              ),
-            ],
-          ),
+
         ],
       ),
     );
@@ -330,35 +347,42 @@ class _DriverDashboardState extends State<DriverDashboard> {
 
   Widget _buildBottomNavigation() {
     return BottomNavigationBar(
-      backgroundColor: Colors.white,
       currentIndex: _currentIndex,
       onTap: (index) => setState(() => _currentIndex = index),
+
       type: BottomNavigationBarType.fixed,
+
       selectedItemColor: AppColors.waygoDarkBlue,
       unselectedItemColor: Colors.grey,
-      showUnselectedLabels: true,
-      selectedLabelStyle: AppTextStyles.bodySmall.copyWith(
-        fontWeight: FontWeight.w600,
-      ),
+
       items: const [
-        BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Overview'),
-        BottomNavigationBarItem(icon: Icon(Icons.map), label: 'Map'),
-        BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Passengers'),
+
         BottomNavigationBarItem(
-          icon: Icon(Icons.confirmation_number),
-          label: 'Bookings',
-        ),
-        BottomNavigationBarItem(icon: Icon(Icons.schedule), label: 'Schedule'),
+            icon: Icon(Icons.dashboard), label: 'Overview'),
+
         BottomNavigationBarItem(
-          icon: Icon(Icons.analytics),
-          label: 'Performance',
-        ),
-        BottomNavigationBarItem(icon: Icon(Icons.build), label: 'Maintenance'),
+            icon: Icon(Icons.map), label: 'Map'),
+
         BottomNavigationBarItem(
-          icon: Icon(Icons.notifications),
-          label: 'Alerts',
-        ),
-        BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+            icon: Icon(Icons.people), label: 'Passengers'),
+
+        BottomNavigationBarItem(
+            icon: Icon(Icons.confirmation_number), label: 'Bookings'),
+
+        BottomNavigationBarItem(
+            icon: Icon(Icons.schedule), label: 'Schedule'),
+
+        BottomNavigationBarItem(
+            icon: Icon(Icons.analytics), label: 'Performance'),
+
+        BottomNavigationBarItem(
+            icon: Icon(Icons.build), label: 'Maintenance'),
+
+        BottomNavigationBarItem(
+            icon: Icon(Icons.notifications), label: 'Alerts'),
+
+        BottomNavigationBarItem(
+            icon: Icon(Icons.person), label: 'Profile'),
       ],
     );
   }
