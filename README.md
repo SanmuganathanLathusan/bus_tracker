@@ -1,7 +1,7 @@
 # 🚌 WayGo – Smart Real-Time Bus Tracking Platform
 
 <p align="center">
-  <img src="assets/logo.png" alt="WayGo Logo" width="180">
+  
 </p>
 
 <p align="center">
@@ -67,32 +67,6 @@ Built with Flutter to provide a smooth and responsive experience across Android 
 Powered by Node.js and MongoDB for high performance and scalability.
 
 ---
-
-## 🎥 Demo Video
-
-Watch the complete project demonstration here:
-
-🔗 **Demo Video:** `ADD_YOUR_VIDEO_LINK_HERE`
-
----
-
-## 📸 Screenshots
-
-### Home Screen
-
-![Home Screen](screenshots/home.png)
-
-### Live Bus Tracking
-
-![Tracking Screen](screenshots/tracking.png)
-
-### Route Information
-
-![Route Screen](screenshots/routes.png)
-
-### Admin Dashboard
-
-![Admin Dashboard](screenshots/admin.png)
 
 ---
 
@@ -305,7 +279,7 @@ WayGo/
 | ------------- | -------------------- | ------------------- |
 | Lathusan Shanmuganathan | Software Engineer    | [GitHub Profile Link](https://github.com/SanmuganathanLathusan) |
 | M.N.M.Rukshan| Software Engineer    | [GitHub Profile Link ](https://github.com/mnmrukshan)|
-| TharukaThennakoon| Software Engineer    | [GitHub Profile Link(https://github.com/TharukaThennakoon) |
+| TharukaThennakoon| Software Engineer    | [GitHub Profile Link](https://github.com/TharukaThennakoon) |
 
 ---
 
@@ -344,14 +318,6 @@ For inquiries, suggestions, or collaboration opportunities:
 
 🔗 GitHub Repository: https://github.com/SanmuganathanLathusan/bus_tracker
 
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License.
-
-See the LICENSE file for additional information.
 
 ---
 
