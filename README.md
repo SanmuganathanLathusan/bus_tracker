@@ -8,7 +8,7 @@
   <a href="https://youtu.be/uUI3g-0C7OE">
     <img src="https://img.shields.io/badge/▶️_Demo-Watch_Now-red?style=for-the-badge&logo=youtube&logoColor=white" alt="Demo">
   </a>
-  <a href="GITHUB_REPOSITORY_LINK">
+  <a href="https://github.com/SanmuganathanLathusan/bus_tracker">
     <img src="https://img.shields.io/badge/GitHub-Repository-black?style=for-the-badge&logo=github&logoColor=white" alt="Repository">
   </a>
   <img src="https://img.shields.io/badge/Flutter-Mobile_App-02569B?style=for-the-badge&logo=flutter&logoColor=white">
